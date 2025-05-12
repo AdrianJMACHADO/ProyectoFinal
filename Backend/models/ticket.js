@@ -1,35 +1,46 @@
 const Sequelize = require('sequelize');
 module.exports = function(sequelize, DataTypes) {
   return sequelize.define('ticket', {
-    idticket: {
+    idTicket: {
       autoIncrement: true,
       type: DataTypes.INTEGER,
       allowNull: false,
       primaryKey: true
     },
-    idferia: {
+    idFeria: {
       type: DataTypes.INTEGER,
-      allowNull: false,
+      allowNull: true,
       references: {
         model: 'feria',
-        key: 'idferia'
+        key: 'idFeria'
       }
     },
-    pelicula: {
+    nombre: {
       type: DataTypes.STRING(100),
       allowNull: false
     },
-    fecha: {
-      type: DataTypes.DATEONLY,
+    tipo: {
+      type: DataTypes.STRING(50),
       allowNull: false
     },
-    hora: {
-      type: DataTypes.TIME,
+    fecha_creacion: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      defaultValue: Sequelize.Sequelize.literal('CURRENT_TIMESTAMP')
+    },
+    cantidad_inicial: {
+      type: DataTypes.INTEGER,
       allowNull: false
     },
-    precio: {
-      type: DataTypes.DECIMAL(5,2),
-      allowNull: false
+    usos: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      defaultValue: 0
+    },
+    estado: {
+      type: DataTypes.STRING(20),
+      allowNull: true,
+      defaultValue: "ACTIVO"
     }
   }, {
     sequelize,
@@ -41,14 +52,14 @@ module.exports = function(sequelize, DataTypes) {
         unique: true,
         using: "BTREE",
         fields: [
-          { name: "idticket" },
+          { name: "idTicket" },
         ]
       },
       {
-        name: "idferia",
+        name: "idFeria",
         using: "BTREE",
         fields: [
-          { name: "idferia" },
+          { name: "idFeria" },
         ]
       },
     ]

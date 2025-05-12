@@ -6,8 +6,8 @@ function initModels(sequelize) {
   var feria = _feria(sequelize, DataTypes);
   var ticket = _ticket(sequelize, DataTypes);
 
-  ticket.belongsTo(feria, { as: "idferia_feria", foreignKey: "idferia"});
-  feria.hasMany(ticket, { as: "ticket", foreignKey: "idferia"});
+  ticket.belongsTo(feria, { as: "idFeria_ferium", foreignKey: "idFeria"});
+  feria.hasMany(ticket, { as: "tickets", foreignKey: "idFeria"});
 
   return {
     feria,

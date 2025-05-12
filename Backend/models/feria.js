@@ -1,7 +1,7 @@
 const Sequelize = require('sequelize');
 module.exports = function(sequelize, DataTypes) {
   return sequelize.define('feria', {
-    idferia: {
+    idFeria: {
       autoIncrement: true,
       type: DataTypes.INTEGER,
       allowNull: false,
@@ -11,13 +11,8 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.STRING(100),
       allowNull: false
     },
-    email: {
-      type: DataTypes.STRING(100),
-      allowNull: false,
-      unique: "email"
-    },
-    telefono: {
-      type: DataTypes.STRING(15),
+    fecha: {
+      type: DataTypes.DATEONLY,
       allowNull: false
     }
   }, {
@@ -30,15 +25,7 @@ module.exports = function(sequelize, DataTypes) {
         unique: true,
         using: "BTREE",
         fields: [
-          { name: "idferia" },
-        ]
-      },
-      {
-        name: "email",
-        unique: true,
-        using: "BTREE",
-        fields: [
-          { name: "email" },
+          { name: "idFeria" },
         ]
       },
     ]
