@@ -1,0 +1,12 @@
+GET http://localhost:3000/api/feria
+
+###
+
+POST http://localhost:3000/api/feria
+Content-Type: application/json
+
+{
+    "idferia": 1,
+    "nombre": "Adrian",
+    "email": "adrian@gmail.com"
+}
