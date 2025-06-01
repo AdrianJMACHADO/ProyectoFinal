@@ -60,20 +60,20 @@ class TicketController {
     }
   }
 
-  async deleteTicket(req, res) {
-    const { idticket } = req.params;
-    try {
-      const ticket = await Ticket.findByPk(idticket);
-      if (!ticket) {
-        res.status(404).json(Respuesta.error(null, `Ticket no encontrada: ${idticket}`));
-      } else {
-        await ticket.destroy();
-        res.json(Respuesta.exito(null, "Ticket eliminada"));
-      }
-    } catch (err) {
-      res.status(500).json(Respuesta.error(null, `Error al eliminar ticket: ${idticket}`));
-    }
-  }
+  // async deleteTicket(req, res) {
+  //   const { idticket } = req.params;
+  //   try {
+  //     const ticket = await Ticket.findByPk(idticket);
+  //     if (!ticket) {
+  //       res.status(404).json(Respuesta.error(null, `Ticket no encontrada: ${idticket}`));
+  //     } else {
+  //       await ticket.destroy();
+  //       res.json(Respuesta.exito(null, "Ticket eliminada"));
+  //     }
+  //   } catch (err) {
+  //     res.status(500).json(Respuesta.error(null, `Error al eliminar ticket: ${idticket}`));
+  //   }
+  // }
 }
 
 module.exports = new TicketController();

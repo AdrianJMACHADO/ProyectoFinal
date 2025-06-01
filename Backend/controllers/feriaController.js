@@ -60,20 +60,20 @@ class FeriaController {
     }
   }
 
-  async deleteFeria(req, res) {
-    const { idferia } = req.params;
-    try {
-      const feria = await Feria.findByPk(idferia);
-      if (!feria) {
-        res.status(404).json(Respuesta.error(null, `Feria no encontrado: ${idferia}`));
-      } else {
-        await feria.destroy();
-        res.json(Respuesta.exito(null, "Feria eliminado"));
-      }
-    } catch (err) {
-      res.status(500).json(Respuesta.error(null, `Error al eliminar feria: ${idferia}`));
-    }
-  }
+  // async deleteFeria(req, res) {
+  //   const { idferia } = req.params;
+  //   try {
+  //     const feria = await Feria.findByPk(idferia);
+  //     if (!feria) {
+  //       res.status(404).json(Respuesta.error(null, `Feria no encontrado: ${idferia}`));
+  //     } else {
+  //       await feria.destroy();
+  //       res.json(Respuesta.exito(null, "Feria eliminado"));
+  //     }
+  //   } catch (err) {
+  //     res.status(500).json(Respuesta.error(null, `Error al eliminar feria: ${idferia}`));
+  //   }
+  // }
 }
 
 module.exports = new FeriaController();

@@ -17,7 +17,7 @@ app.use(express.json());
 // Configurar CORS para admitir cualquier origen
 app.use(cors(
   {
-    origin: "http://localhost:5173",
+    origin: "http://localhost:8081",
     credentials: true,
   }
 ));
