@@ -1,6 +1,7 @@
 import { useNavigation } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { NavigationHeader } from '../components/NavigationHeader';
 import { useAuth } from '../contexts/AuthContext';
 
 // Tipos
@@ -10,7 +11,7 @@ interface Feria {
   fecha: string;
 }
 
-const FERIAS_API = 'http://va-server.duckdns.org:3000/ferias';
+const FERIAS_API = 'http://va-server.duckdns.org:3000/api/feria';
 
 const FeriasScreen: React.FC = () => {
   const navigation = useNavigation();
@@ -30,7 +31,11 @@ const FeriasScreen: React.FC = () => {
     try {
       const res = await fetch(FERIAS_API);
       const data = await res.json();
-      setFerias(data);
+      if (data.ok) {
+        setFerias(data.datos);
+      } else {
+        throw new Error(data.mensaje || 'Error al cargar las ferias');
+      }
     } catch (e) {
       Alert.alert('Error', 'No se pudieron cargar las ferias.');
     } finally {
@@ -117,7 +122,8 @@ const FeriasScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>Ferias</Text>
+      <NavigationHeader />
+
       <TouchableOpacity style={styles.createButton} onPress={openCreateModal}>
         <Text style={styles.createButtonText}>+ Nueva Feria</Text>
       </TouchableOpacity>
@@ -166,15 +172,6 @@ const FeriasScreen: React.FC = () => {
           </View>
         </View>
       </Modal>
-      {/* Navegación */}
-      <View style={styles.bottomBar}>
-        <TouchableOpacity style={styles.bottomButton} onPress={() => navigation.goBack()}>
-          <Text style={styles.bottomButtonText}>Volver a Tickets</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.bottomButton} onPress={logout}>
-          <Text style={styles.bottomButtonText}>Cerrar sesión</Text>
-        </TouchableOpacity>
-      </View>
     </View>
   );
 };
@@ -183,9 +180,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8F8F8',
-    paddingTop: 50,
-    paddingHorizontal: 16,
+    paddingTop: 0,
+    paddingHorizontal: 0,
   },
+  headerContainer: {},
   header: {
     fontSize: 28,
     fontWeight: 'bold',
