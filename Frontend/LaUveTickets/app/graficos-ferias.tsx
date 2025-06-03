@@ -67,7 +67,7 @@ export default function GraficosFeriasScreen() {
               data={Object.entries(feriasPorMes).map(([key, value], index) => ({
                 name: key,
                 population: value,
-                color: `rgba(0, 122, 255, ${0.5 + (index * 0.1)})`,
+                color: `hsl(${index * 60}, 40%, 60%)`,
                 legendFontColor: '#7F7F7F',
                 legendFontSize: 12,
               }))}

@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Button, Dimensions, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -38,6 +39,8 @@ export default function TicketsScreen() {
   const [creating, setCreating] = useState(false);
   const screenWidth = Dimensions.get('window').width;
   const isMobile = screenWidth < 600;
+  const [selectedYear, setSelectedYear] = useState<string | null>(null);
+  const [availableYears, setAvailableYears] = useState<string[]>([]);
 
   // Cargar tickets y ferias
   const loadData = async () => {
@@ -47,16 +50,22 @@ export default function TicketsScreen() {
         fetch('http://va-server.duckdns.org:3000/api/ticket'),
         fetch('http://va-server.duckdns.org:3000/api/feria'),
       ]);
-      
+
       if (!ticketsRes.ok) throw new Error(`HTTP error! status: ${ticketsRes.status} al cargar tickets`);
       if (!feriasRes.ok) throw new Error(`HTTP error! status: ${feriasRes.status} al cargar ferias`);
 
       const ticketsData = await ticketsRes.json();
       const feriasData = await feriasRes.json();
-      
+
       if (ticketsData.ok && feriasData.ok) {
         setTickets(ticketsData.datos);
         setFerias(feriasData.datos);
+        const years = Array.from(new Set(feriasData.datos.map((feria: Feria) => new Date(feria.fecha).getFullYear().toString()))) as string[];
+        years.sort((a, b) => parseInt(b) - parseInt(a));
+        setAvailableYears(years);
+        if (years.length > 0) {
+          setSelectedYear(years[0]);
+        }
       } else {
         // Si la respuesta JSON indica error aunque HTTP sea 200
         throw new Error(ticketsData.mensaje || feriasData.mensaje || 'Error al cargar los datos (API)');
@@ -69,6 +78,11 @@ export default function TicketsScreen() {
   };
 
   useEffect(() => { loadData(); }, []); // Cargar datos al montar
+
+  // Handler para el cambio de año desde NavigationHeader
+  const handleYearChange = (year: string | null) => {
+    setSelectedYear(year);
+  };
 
   // Guardar ticket
   const handleSaveTicket = async (updatedTicket: Partial<Ticket>) => {
@@ -104,10 +118,10 @@ export default function TicketsScreen() {
         console.error('API Error:', data);
         throw new Error(data.mensaje || `Error HTTP ${res.status} al ${isCreating ? 'crear' : 'actualizar'} el ticket`);
       }
-      
+
       // Si se creó, navegar al detalle del nuevo ticket
       if (isCreating && data.ok && data.datos && data.datos.idTicket) {
-         router.push(`/tickets/${data.datos.idTicket}`);
+        router.push(`/tickets/${data.datos.idTicket}`);
       } else {
         // Si se actualizó o la creación no devolvió ID, solo recargar datos
         await loadData();
@@ -136,7 +150,7 @@ export default function TicketsScreen() {
       // Si la API devuelve éxito, recargar
       const data = await res.json();
       if (data.ok) {
-         loadData();
+        loadData();
       } else {
         throw new Error(data.mensaje || 'Error al cambiar estado (API)');
       }
@@ -149,7 +163,17 @@ export default function TicketsScreen() {
 
   // Renderizar ticket
   const renderTicket = ({ item }: { item: Ticket }) => (
-    <View style={styles.ticketItem}>
+    <LinearGradient
+      colors={
+        item.estado === 'ACTIVO'
+          ? ['#FFFFFF', '#FFFFFF', '#34C759']  // Blanco -> Blanco -> Verde
+          : ['#FFFFFF', '#FFFFFF', '#FF3B30']  // Blanco -> Blanco -> Rojo
+      }
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 0 }}
+      style={styles.ticketItem}
+      locations={[0, 0.6, 1]}  // Puntos clave: 0%, 80% y 100%
+    >
       <Text style={styles.ticketTitle}>{item.nombre} ({item.tipo})</Text>
       <Text>Feria: {ferias.find(f => f.idFeria === item.idFeria)?.nombre || '-'}</Text>
       <Text>Cantidad inicial: {item.cantidad_inicial}</Text>
@@ -157,12 +181,12 @@ export default function TicketsScreen() {
       <Text>Estado: {item.estado}</Text>
       <Text>Fecha creación: {item.fecha_creacion ? format(new Date(item.fecha_creacion), 'dd/MM/yyyy') : '-'}</Text>
       <View style={[styles.ticketActions, isMobile && styles.ticketActionsMobile]}>
-        <Button 
-          title="Editar" 
+        <Button
+          title="Editar"
           onPress={() => {
             setSelectedTicket(item);
             setEditModalVisible(true);
-          }} 
+          }}
         />
         <Button
           title={item.estado === 'ACTIVO' ? 'Desactivar' : 'Activar'}
@@ -180,15 +204,27 @@ export default function TicketsScreen() {
           />
         )}
       </View>
-    </View>
+    </LinearGradient>
   );
 
   if (loading) return <View style={styles.center}><ActivityIndicator size="large" /></View>;
 
+  // Filtrar tickets por año seleccionado
+  const filteredTickets = selectedYear
+    ? tickets.filter(ticket => {
+      const feria = ferias.find(f => f.idFeria === ticket.idFeria);
+      return feria && new Date(feria.fecha).getFullYear().toString() === selectedYear;
+    })
+    : tickets; // Si no hay año seleccionado, mostrar todos
+
   return (
     <View style={styles.container}>
-      {/* Restaurar el header original: solo NavigationHeader */}
-      <NavigationHeader />
+      {/* Pasar años disponibles y handler de cambio de año a NavigationHeader */}
+      <NavigationHeader
+        availableYears={availableYears}
+        selectedYear={selectedYear}
+        onYearChange={handleYearChange}
+      />
 
       {/* Botón superior para escritorio */}
       {!isMobile && (
@@ -213,7 +249,7 @@ export default function TicketsScreen() {
         </TouchableOpacity>
       )}
       <FlatList
-        data={tickets}
+        data={filteredTickets}
         renderItem={renderTicket}
         keyExtractor={item => item.idTicket.toString()}
         style={styles.list}
@@ -308,9 +344,4 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 2 },
   },
-  // Eliminar estilos relacionados con el headerContainer y botones añadidos
-  headerContainer: {},
-  headerButtons: {},
-  headerButton: {},
-  logoutButtonHeader: {},
 }); 

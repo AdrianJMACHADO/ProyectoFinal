@@ -22,7 +22,9 @@ class TicketController {
 
   async getAllTicket(req, res) {
     try {
-      const data = await Ticket.findAll();
+      const data = await Ticket.findAll({
+        order: [['fecha_creacion', 'DESC']]
+      });
       res.json(Respuesta.exito(data, "Lista de ticket recuperada"));
     } catch (err) {
       res
