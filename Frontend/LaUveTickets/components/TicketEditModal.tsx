@@ -1,18 +1,17 @@
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
-import { format } from 'date-fns';
 import React, { useEffect, useState } from 'react';
-import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import Modal from 'react-native-modal';
-import { Ticket } from '../app/tickets';
+import { ActivityIndicator, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Feria, Ticket } from '../app/tickets';
 
 type TicketEditModalProps = {
   isVisible: boolean;
   onClose: () => void;
-  onSave: (ticket: Partial<Ticket>) => void;
-  ticket: Ticket;
-  ferias: Array<{ idFeria: number; nombre: string }>;
+  onSave: (ticket: Partial<Ticket>) => Promise<void>;
+  ticket: Partial<Ticket> | null;
+  ferias: Feria[];
   isCreating: boolean;
+  isLoading: boolean;
+  error: string | null;
 };
 
 export const TicketEditModal: React.FC<TicketEditModalProps> = ({
@@ -22,200 +21,179 @@ export const TicketEditModal: React.FC<TicketEditModalProps> = ({
   ticket,
   ferias,
   isCreating,
+  isLoading,
+  error,
 }) => {
   const [form, setForm] = useState<Partial<Ticket>>({
-    idTicket: ticket.idTicket,
-    idFeria: ticket.idFeria,
-    nombre: ticket.nombre,
-    tipo: ticket.tipo,
-    cantidad_inicial: ticket.cantidad_inicial,
-    usos: ticket.usos,
-    estado: ticket.estado,
-    fecha_creacion: ticket.fecha_creacion,
+    idTicket: ticket?.idTicket,
+    idFeria: ticket?.idFeria,
+    nombre: ticket?.nombre || '',
+    tipo: ticket?.tipo || '',
+    cantidad_inicial: ticket?.cantidad_inicial || 0,
+    usos: ticket?.usos || 0,
+    estado: ticket?.estado || 'ACTIVO',
   });
 
-  const [errors, setErrors] = useState<{ [key: string]: string }>({});
-  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
 
-  // Actualizar el formulario cuando cambie el ticket
   useEffect(() => {
-    setForm({
-      idTicket: ticket.idTicket,
-      idFeria: ticket.idFeria,
-      nombre: ticket.nombre,
-      tipo: ticket.tipo,
-      cantidad_inicial: ticket.cantidad_inicial,
-      usos: ticket.usos,
-      estado: ticket.estado,
-      fecha_creacion: ticket.fecha_creacion,
-    });
+    if (ticket) {
+      setForm({
+        idTicket: ticket.idTicket,
+        idFeria: ticket.idFeria === undefined ? null : ticket.idFeria,
+        nombre: ticket.nombre || '',
+        tipo: ticket.tipo || '',
+        cantidad_inicial: ticket.cantidad_inicial === undefined ? 0 : ticket.cantidad_inicial,
+        usos: ticket.usos === undefined ? 0 : ticket.usos,
+        estado: ticket.estado || 'ACTIVO',
+      });
+    } else {
+      setForm({
+        idTicket: undefined,
+        idFeria: null,
+        nombre: '',
+        tipo: '',
+        cantidad_inicial: 0,
+        usos: 0,
+        estado: 'ACTIVO',
+      });
+    }
+    setFormErrors({});
   }, [ticket]);
 
-  const validate = () => {
-    const newErrors: { [key: string]: string } = {};
-    if (!form.nombre?.trim()) newErrors.nombre = 'El nombre es obligatorio';
-    if (!form.tipo?.trim()) newErrors.tipo = 'El tipo es obligatorio';
-    if (!form.estado?.trim()) newErrors.estado = 'El estado es obligatorio';
-    if (form.usos !== undefined && form.usos < 0) newErrors.usos = 'Los usos no pueden ser negativos';
-    if (isCreating && (!form.cantidad_inicial || form.cantidad_inicial <= 0)) newErrors.cantidad_inicial = 'La cantidad inicial debe ser mayor que 0';
+  useEffect(() => {
+    if (!isVisible) {
+      setFormErrors({});
+    }
+  }, [isVisible]);
 
-    // Validar que idFeria esté seleccionado al crear
-    if (isCreating && (form.idFeria === null || form.idFeria === undefined || form.idFeria === 0)) {
-        newErrors.idFeria = 'Debe seleccionar una feria';
+  const validate = () => {
+    const errors: { nombre?: string; tipo?: string; cantidad_inicial?: string; idFeria?: string } = {};
+    if (!form.nombre || !form.nombre.trim()) errors.nombre = 'El nombre es obligatorio';
+    if (!form.tipo || !form.tipo.trim()) errors.tipo = 'El tipo es obligatorio';
+    if (isCreating && (form.cantidad_inicial === undefined || form.cantidad_inicial === null || form.cantidad_inicial < 0)) errors.cantidad_inicial = 'La cantidad inicial debe ser un número positivo al crear';
+
+    if (isCreating && (form.idFeria === undefined || form.idFeria === null)) {
+        errors.idFeria = 'Debe seleccionar una feria';
     }
 
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (validate()) {
-      onSave(form);
-      onClose();
+      await onSave(form);
     }
   };
 
   return (
     <Modal
-      isVisible={isVisible}
-      onBackdropPress={onClose}
-      onBackButtonPress={onClose}
-      style={styles.modal}
+      visible={isVisible}
+      animationType="slide"
+      transparent={true}
+      onRequestClose={onClose}
     >
-      <View style={styles.container}>
-        <Text style={styles.title}>{isCreating ? 'Crear Ticket' : 'Editar Ticket'}</Text>
-        {/* Indicador temporal para depuración */}
-        <Text style={{ fontSize: 10, color: 'gray' }}>{`isCreating: ${isCreating}`}</Text>
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>{isCreating ? 'Crear Ticket' : 'Editar Ticket'}</Text>
 
-        {/* Campo de Feria (solo al crear) */}
-        {isCreating && (
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Feria</Text>
-            <View style={styles.pickerWrapper}>
-              <Picker
-                selectedValue={form.idFeria || ''}
-                onValueChange={(itemValue) => setForm({ ...form, idFeria: itemValue !== '' ? Number(itemValue) : null })}
-                style={styles.picker}
-              >
-                <Picker.Item label="Selecciona una Feria" value="" />
-                {ferias.map(feria => (
-                  <Picker.Item key={feria.idFeria} label={feria.nombre} value={String(feria.idFeria)} />
-                ))}
-              </Picker>
+          {isCreating && (
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Feria</Text>
+              <View style={styles.pickerWrapper}>
+                <Picker
+                  selectedValue={form.idFeria != null ? form.idFeria.toString() : ''}
+                  onValueChange={(itemValue) => setForm(f => ({ ...f, idFeria: itemValue !== '' ? Number(itemValue) : null }))}
+                  style={styles.picker}
+                >
+                  <Picker.Item label="Selecciona una Feria" value="" />
+                  {ferias.map(feria => (
+                    <Picker.Item key={feria.idFeria} label={feria.nombre} value={String(feria.idFeria)} />
+                  ))}
+                </Picker>
+              </View>
+              {formErrors.idFeria && <Text style={styles.errorText}>{formErrors.idFeria}</Text>}
             </View>
-            {errors.idFeria && <Text style={styles.errorText}>{errors.idFeria}</Text>}
-          </View>
-        )}
+          )}
 
-        {/* Campos editables */}
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Nombre</Text>
-          <TextInput
-            style={styles.input}
-            value={form.nombre}
-            onChangeText={(text) => setForm({ ...form, nombre: text })}
-            placeholder="Nombre del ticket"
-          />
-          {errors.nombre && <Text style={styles.errorText}>{errors.nombre}</Text>}
-        </View>
-
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Tipo</Text>
-          <TextInput
-            style={styles.input}
-            value={form.tipo}
-            onChangeText={(text) => setForm({ ...form, tipo: text })}
-            placeholder="Tipo de ticket"
-          />
-          {errors.tipo && <Text style={styles.errorText}>{errors.tipo}</Text>}
-        </View>
-
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Cantidad Inicial</Text>
-          <TextInput
-            style={[styles.input, !isCreating && styles.disabledInput]}
-            value={form.cantidad_inicial?.toString()}
-            onChangeText={(text) => setForm({ ...form, cantidad_inicial: parseInt(text) || 0 })}
-            placeholder="Cantidad inicial"
-            keyboardType="numeric"
-            editable={isCreating}
-          />
-          {errors.cantidad_inicial && <Text style={styles.errorText}>{errors.cantidad_inicial}</Text>}
-        </View>
-
-        {/* Campo Usos (solo visible y editable al editar) */}
-        {!isCreating && (
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Usos</Text>
+            <Text style={styles.label}>Nombre</Text>
             <TextInput
-              style={styles.input}
-              value={form.usos?.toString()}
-              onChangeText={(text) => setForm({ ...form, usos: parseInt(text) || 0 })}
-              placeholder="Número de usos"
+              style={[styles.input, formErrors.nombre && styles.inputError]}
+              placeholder="Nombre del Ticket"
+              value={form.nombre}
+              onChangeText={(text) => setForm(f => ({ ...f, nombre: text }))}
+            />
+            {formErrors.nombre && <Text style={styles.errorText}>{formErrors.nombre}</Text>}
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Tipo</Text>
+            <TextInput
+              style={[styles.input, formErrors.tipo && styles.inputError]}
+              placeholder="Tipo (0: Invitación, 1: 2x1, 3: 50%dto)"
+              value={form.tipo}
+              onChangeText={(text) => setForm(f => ({ ...f, tipo: text }))}
+            />
+            {formErrors.tipo && <Text style={styles.errorText}>{formErrors.tipo}</Text>}
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Cantidad Inicial</Text>
+            <TextInput
+              style={[styles.input, !isCreating && styles.disabledInput, formErrors.cantidad_inicial && styles.inputError]}
+              placeholder="Cantidad inicial de usos"
               keyboardType="numeric"
+              value={form.cantidad_inicial != null ? form.cantidad_inicial.toString() : ''}
+              onChangeText={(text) => setForm(f => ({ ...f, cantidad_inicial: parseInt(text) || 0 }))}
+              editable={isCreating}
             />
-            {errors.usos && <Text style={styles.errorText}>{errors.usos}</Text>}
+            {formErrors.cantidad_inicial && <Text style={styles.errorText}>{formErrors.cantidad_inicial}</Text>}
           </View>
-        )}
 
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Estado</Text>
-          <View style={styles.pickerWrapper}>
-            <Picker
-              selectedValue={form.estado}
-              onValueChange={(itemValue) => setForm({ ...form, estado: itemValue })}
-              style={styles.picker}
-            >
-              <Picker.Item label="ACTIVO" value="ACTIVO" />
-              <Picker.Item label="INACTIVO" value="INACTIVO" />
-            </Picker>
-          </View>
-          {errors.estado && <Text style={styles.errorText}>{errors.estado}</Text>}
-        </View>
+          {!isCreating && (
+            <>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Usos</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Usos actuales"
+                  keyboardType="numeric"
+                  value={form.usos != null ? form.usos.toString() : ''}
+                  onChangeText={(text) => setForm(f => ({ ...f, usos: parseInt(text) || 0 }))}
+                />
+              </View>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Estado</Text>
+                <View style={styles.pickerWrapper}>
+                  <Picker
+                    selectedValue={form.estado || 'ACTIVO'}
+                    onValueChange={(itemValue) => setForm(f => ({ ...f, estado: itemValue }))}
+                    style={styles.picker}
+                  >
+                    <Picker.Item label="ACTIVO" value="ACTIVO" />
+                    <Picker.Item label="INACTIVO" value="INACTIVO" />
+                  </Picker>
+                </View>
+              </View>
+            </>
+          )}
 
-        {/* Campo Fecha de Creación */}
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Fecha de Creación</Text>
-          {Platform.OS === 'web' ? (
-            <input
-              type="date"
-              value={form.fecha_creacion ? format(new Date(form.fecha_creacion), 'yyyy-MM-dd') : ''}
-              onChange={(e) => {
-                setForm({ ...form, fecha_creacion: e.target.value ? new Date(e.target.value).toISOString() : undefined });
-              }}
-              style={{ ...styles.input as any, paddingVertical: 10, paddingHorizontal: 10, height: 44, color: form.fecha_creacion ? '#222' : '#aaa'}}
-            />
-          ) : (
-            <TouchableOpacity
-              style={styles.input}
-              onPress={() => setShowDatePicker(true)}
-              activeOpacity={0.7}
-            >
-              <Text style={{ color: form.fecha_creacion ? '#222' : '#aaa' }}>
-                {form.fecha_creacion ? format(new Date(form.fecha_creacion), 'dd/MM/yyyy') : 'Selecciona una fecha'}
-              </Text>
+          {error && <Text style={styles.saveErrorText}>{error}</Text>}
+
+          <View style={styles.modalButtons}>
+            {isLoading ? (
+              <ActivityIndicator size="small" color="#007AFF" />
+            ) : (
+              <TouchableOpacity style={[styles.button, styles.saveButton]} onPress={handleSave} disabled={isLoading}>
+                <Text style={styles.buttonText}>{isCreating ? 'Crear' : 'Guardar Cambios'}</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={onClose} disabled={isLoading}>
+              <Text style={styles.buttonText}>Cancelar</Text>
             </TouchableOpacity>
-          )}
-          {showDatePicker && Platform.OS !== 'web' && (
-            <DateTimePicker
-              value={form.fecha_creacion ? new Date(form.fecha_creacion) : new Date()}
-              mode="date"
-              display="default"
-              onChange={(_, date) => {
-                setShowDatePicker(false);
-                if (date) setForm({ ...form, fecha_creacion: date.toISOString() });
-              }}
-            />
-          )}
-        </View>
-
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={onClose}>
-            <Text style={styles.buttonText}>Cancelar</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.button, styles.saveButton]} onPress={handleSave}>
-            <Text style={styles.buttonText}>Guardar</Text>
-          </TouchableOpacity>
+          </View>
         </View>
       </View>
     </Modal>
@@ -223,29 +201,32 @@ export const TicketEditModal: React.FC<TicketEditModalProps> = ({
 };
 
 const styles = StyleSheet.create({
-  modal: {
-    margin: 0,
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  container: {
+  modalContent: {
     backgroundColor: 'white',
-    borderRadius: 10,
     padding: 20,
+    borderRadius: 10,
     width: '90%',
-    maxWidth: 500,
+    maxWidth: 400,
+    elevation: 5,
   },
-  title: {
+  modalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    marginBottom: 20,
+    marginBottom: 15,
     textAlign: 'center',
   },
   inputGroup: {
     marginBottom: 15,
   },
   label: {
-    fontSize: 16,
+    fontSize: 14,
+    fontWeight: 'bold',
     marginBottom: 5,
     color: '#333',
   },
@@ -255,26 +236,40 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     padding: 10,
     fontSize: 16,
+    backgroundColor: '#f9f9f9',
   },
-  pickerWrapper: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 5,
-    overflow: 'hidden',
+  inputError: {
+      borderColor: '#ff3b30',
   },
-  picker: {
-    height: 50,
+  errorText: {
+      color: '#ff3b30',
+      fontSize: 12,
+      marginTop: 5,
   },
-  buttonContainer: {
+   readOnlyText: {
+       fontSize: 16,
+       padding: 10,
+       backgroundColor: '#e9e9e9',
+       borderRadius: 5,
+       color: '#555',
+   },
+  modalButtons: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'space-around',
     marginTop: 20,
+  },
+  saveErrorText: {
+      color: '#ff3b30',
+      textAlign: 'center',
+      marginBottom: 10,
   },
   button: {
     flex: 1,
     padding: 15,
     borderRadius: 5,
     marginHorizontal: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   saveButton: {
     backgroundColor: '#007AFF',
@@ -289,12 +284,17 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   disabledInput: {
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#e9e9e9',
     color: '#666',
   },
-  errorText: {
-    color: '#FF3B30',
-    fontSize: 12,
-    marginTop: 5,
-  },
+   pickerWrapper: {
+       borderWidth: 1,
+       borderColor: '#ddd',
+       borderRadius: 5,
+       backgroundColor: '#f9f9f9',
+   },
+   picker: {
+       height: 50,
+       width: '100%',
+   },
 }); 

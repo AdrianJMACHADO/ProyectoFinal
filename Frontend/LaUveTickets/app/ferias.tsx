@@ -1,6 +1,9 @@
+import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { format } from 'date-fns';
 import { useNavigation } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Modal, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { NavigationHeader } from '../components/NavigationHeader';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -24,20 +27,40 @@ const FeriasScreen: React.FC = () => {
   const [selectedFeria, setSelectedFeria] = useState<Feria | null>(null);
   const [form, setForm] = useState<{ nombre: string; fecha: string }>({ nombre: '', fecha: '' });
   const [formErrors, setFormErrors] = useState<{ nombre?: string; fecha?: string }>({});
+  const [selectedYear, setSelectedYear] = useState<string | null>(null);
+  const [availableYears, setAvailableYears] = useState<string[]>([]);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [modalError, setModalError] = useState<string | null>(null);
 
   // Cargar ferias
   const loadFerias = async () => {
     setLoading(true);
+    setError(null);
     try {
       const res = await fetch(FERIAS_API);
       const data = await res.json();
       if (data.ok) {
         setFerias(data.datos);
+        const years: string[] = Array.from(new Set(data.datos.map((feria: Feria) => new Date(feria.fecha).getFullYear().toString())));
+        years.sort((a, b) => parseInt(b) - parseInt(a));
+        setAvailableYears(['Todas las fechas', ...years]);
+        if (selectedYear === null && years.length > 0) {
+          setSelectedYear(years[0]);
+        } else {
+          setSelectedYear('Todas las fechas');
+        }
+        setError(null);
       } else {
-        throw new Error(data.mensaje || 'Error al cargar las ferias');
+        const errorMessage = data.mensaje || 'Error al cargar las ferias (API)';
+        setError(errorMessage);
+        throw new Error(errorMessage);
       }
     } catch (e) {
-      Alert.alert('Error', 'No se pudieron cargar las ferias.');
+      console.error('Error al cargar los datos:', e);
+      const errorMessage = (e as Error).message || 'No se pudieron cargar las ferias.';
+      setError(errorMessage);
+      Alert.alert('Error de Carga', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -47,13 +70,16 @@ const FeriasScreen: React.FC = () => {
     loadFerias();
   }, []);
 
+  // Handler para el cambio de año desde NavigationHeader
+  const handleYearChange = (year: string | null) => {
+    setSelectedYear(year);
+  };
+
   // Validación
   const validate = () => {
     const errors: { nombre?: string; fecha?: string } = {};
     if (!form.nombre.trim()) errors.nombre = 'El nombre es obligatorio';
     if (!form.fecha.trim()) errors.fecha = 'La fecha es obligatoria';
-    // Validación simple de fecha (YYYY-MM-DD)
-    if (form.fecha && !/^\d{4}-\d{2}-\d{2}$/.test(form.fecha)) errors.fecha = 'Formato: YYYY-MM-DD';
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -63,6 +89,7 @@ const FeriasScreen: React.FC = () => {
     setEditMode(false);
     setForm({ nombre: '', fecha: '' });
     setFormErrors({});
+    setModalError(null);
     setModalVisible(true);
   };
 
@@ -72,35 +99,48 @@ const FeriasScreen: React.FC = () => {
     setSelectedFeria(feria);
     setForm({ nombre: feria.nombre, fecha: feria.fecha });
     setFormErrors({});
+    setModalError(null);
     setModalVisible(true);
   };
 
   // Guardar feria (crear o editar)
   const saveFeria = async () => {
-    if (!validate()) return;
+    if (!validate()) {
+        setModalError('Por favor, complete los campos obligatorios.');
+        return false;
+    }
     setLoading(true);
+    setModalError(null);
     try {
-      if (editMode && selectedFeria) {
-        // Editar
-        const res = await fetch(`${FERIAS_API}/${selectedFeria.idFeria}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(form),
-        });
-        if (!res.ok) throw new Error('Error al editar la feria');
-      } else {
-        // Crear
-        const res = await fetch(FERIAS_API, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(form),
-        });
-        if (!res.ok) throw new Error('Error al crear la feria');
+      const url = editMode && selectedFeria
+        ? `${FERIAS_API}/${selectedFeria.idFeria}`
+        : FERIAS_API;
+      const method = editMode && selectedFeria ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method: method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.ok) {
+        console.error('API Error:', data);
+        const errorMessage = data.mensaje || `Error HTTP ${res.status} al ${editMode ? 'editar' : 'crear'} la feria`;
+        setModalError(errorMessage);
+        return false;
       }
-      setModalVisible(false);
-      loadFerias();
+
+      Alert.alert('Éxito', `${editMode ? 'Feria actualizada' : 'Feria creada'} correctamente`);
+      await loadFerias();
+      return true;
+
     } catch (e) {
-      Alert.alert('Error', (e as Error).message);
+      console.error('Fetch Error:', e);
+      const errorMessage = (e as Error).message || `No se pudo ${editMode ? 'editar' : 'crear'} la feria`;
+      setModalError(errorMessage);
+      return false;
     } finally {
       setLoading(false);
     }
@@ -120,9 +160,32 @@ const FeriasScreen: React.FC = () => {
     </View>
   );
 
+  // Filtrar ferias por año seleccionado
+  const filteredFerias = selectedYear === 'Todas las fechas'
+    ? ferias
+    : selectedYear
+    ? ferias.filter(feria => new Date(feria.fecha).getFullYear().toString() === selectedYear)
+    : ferias;
+
+  if (error) {
+    return (
+      <View style={styles.errorContainer}>
+        <Ionicons name="cloud-offline" size={50} color="#FF3B30" />
+        <Text style={styles.errorTextCentered}>Error al cargar las ferias: {error}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={loadFerias}>
+          <Text style={styles.retryButtonText}>Reintentar</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
-      <NavigationHeader />
+      <NavigationHeader 
+        availableYears={availableYears}
+        selectedYear={selectedYear}
+        onYearChange={handleYearChange}
+      />
 
       <TouchableOpacity style={styles.createButton} onPress={openCreateModal}>
         <Text style={styles.createButtonText}>+ Nueva Feria</Text>
@@ -130,19 +193,25 @@ const FeriasScreen: React.FC = () => {
       {loading ? (
         <ActivityIndicator size="large" color="#007AFF" style={{ marginTop: 40 }} />
       ) : (
-        <FlatList
-          data={ferias}
-          keyExtractor={(item) => item.idFeria.toString()}
-          renderItem={renderFeria}
-          contentContainerStyle={{ paddingBottom: 100 }}
-        />
+        filteredFerias.length > 0 ? (
+          <FlatList
+            data={filteredFerias}
+            keyExtractor={(item) => item.idFeria.toString()}
+            renderItem={renderFeria}
+            contentContainerStyle={{ paddingBottom: 100 }}
+          />
+        ) : (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>No hay ferias disponibles para este año.</Text>
+          </View>
+        )
       )}
       {/* Modal de creación/edición */}
       <Modal
         visible={modalVisible}
         animationType="slide"
         transparent
-        onRequestClose={() => setModalVisible(false)}
+        onRequestClose={() => { setModalVisible(false); setModalError(null); }}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -154,18 +223,57 @@ const FeriasScreen: React.FC = () => {
               onChangeText={(text) => setForm((f) => ({ ...f, nombre: text }))}
             />
             {formErrors.nombre && <Text style={styles.errorText}>{formErrors.nombre}</Text>}
-            <TextInput
-              style={[styles.input, formErrors.fecha && styles.inputError]}
-              placeholder="Fecha (YYYY-MM-DD)"
-              value={form.fecha}
-              onChangeText={(text) => setForm((f) => ({ ...f, fecha: text }))}
-            />
-            {formErrors.fecha && <Text style={styles.errorText}>{formErrors.fecha}</Text>}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Fecha</Text>
+              {Platform.OS === 'web' ? (
+                <input
+                  type="date"
+                  value={form.fecha ? format(new Date(form.fecha), 'yyyy-MM-dd') : ''}
+                  onChange={(e) => {
+                    setForm((f) => ({ ...f, fecha: e.target.value }));
+                  }}
+                  style={{ ...styles.input as any, paddingVertical: 10, paddingHorizontal: 10, height: 44, color: form.fecha ? '#222' : '#aaa'}}
+                />
+              ) : (
+                <TouchableOpacity
+                  style={[styles.input, formErrors.fecha && styles.inputError]}
+                  onPress={() => setShowDatePicker(true)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={{ color: form.fecha ? '#222' : '#aaa' }}>
+                    {form.fecha ? format(new Date(form.fecha), 'dd/MM/yyyy') : 'Selecciona una fecha'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+              {showDatePicker && Platform.OS !== 'web' && (
+                <DateTimePicker
+                  value={form.fecha ? new Date(form.fecha) : new Date()}
+                  mode="date"
+                  display="default"
+                  onChange={(_, date) => {
+                    setShowDatePicker(false);
+                    if (date) setForm((f) => ({ ...f, fecha: format(date, 'yyyy-MM-dd') }));
+                  }}
+                />
+              )}
+              {formErrors.fecha && <Text style={styles.errorText}>{formErrors.fecha}</Text>}
+            </View>
+            {modalError && <Text style={styles.modalSaveErrorText}>{modalError}</Text>}
             <View style={styles.modalButtons}>
-              <TouchableOpacity style={styles.saveButton} onPress={saveFeria}>
-                <Text style={styles.saveButtonText}>{editMode ? 'Guardar Cambios' : 'Crear'}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.cancelButton} onPress={() => setModalVisible(false)}>
+              {loading ? (
+                <ActivityIndicator size="small" color="#007AFF" />
+              ) : (
+                <TouchableOpacity style={styles.saveButton} onPress={async () => {
+                    const success = await saveFeria();
+                    if (success) {
+                      setModalVisible(false);
+                      setModalError(null);
+                    }
+                  }}>
+                  <Text style={styles.saveButtonText}>{editMode ? 'Guardar Cambios' : 'Crear'}</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity style={styles.cancelButton} onPress={() => { setModalVisible(false); setModalError(null); }} disabled={loading}>
                 <Text style={styles.cancelButtonText}>Cancelar</Text>
               </TouchableOpacity>
             </View>
@@ -259,10 +367,9 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 6,
+    borderColor: '#ddd',
+    borderRadius: 5,
     padding: 10,
-    marginBottom: 10,
     fontSize: 16,
     backgroundColor: '#F5F5F5',
   },
@@ -323,6 +430,56 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 15,
+  },
+  inputGroup: {
+    marginBottom: 10,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 5,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorTextCentered: {
+    color: '#FF3B30',
+    fontSize: 16,
+    textAlign: 'center',
+    marginTop: 10,
+    marginBottom: 20,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+  },
+  modalSaveErrorText: {
+      color: '#ff3b30',
+      textAlign: 'center',
+      marginBottom: 10,
+      fontSize: 14,
+  },
+  retryButton: {
+      backgroundColor: '#007AFF',
+      paddingVertical: 10,
+      paddingHorizontal: 20,
+      borderRadius: 8,
+  },
+  retryButtonText: {
+      color: '#fff',
+      fontSize: 16,
+      fontWeight: 'bold',
   },
 });
 

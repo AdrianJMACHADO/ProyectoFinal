@@ -1,9 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Picker } from '@react-native-picker/picker';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { StyleSheet, TouchableOpacity, View, Platform } from 'react-native';
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
-import { Picker } from '@react-native-picker/picker';
 
 interface NavigationHeaderProps {
   availableYears?: string[];
@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
     width: 120,
     borderWidth: 1,
     borderColor: '#ddd',
-    borderRadius: 25, // Bordes más redondeados
+    borderRadius: 25,
     justifyContent: 'center',
     height: 40,
     padding: 0,
