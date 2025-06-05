@@ -1,8 +1,12 @@
+import { ThemedText } from '@/components/ThemedText';
+import { ThemedView } from '@/components/ThemedView';
+import { useTheme } from '@/hooks/useThemeColor';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, Platform, SafeAreaView, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { PieChart } from 'react-native-chart-kit';
 import { ProgressBar } from 'react-native-paper';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NavigationHeader } from '../components/NavigationHeader';
 import { Feria, Ticket } from './tickets';
 
@@ -13,6 +17,13 @@ export default function GraficosTicketsScreen() {
   const [selectedYear, setSelectedYear] = useState<string | null>(null);
   const [availableYears, setAvailableYears] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  // Hook para obtener las áreas seguras y dimensiones
+  const insets = useSafeAreaInsets();
+  const screenWidth = Dimensions.get('window').width;
+  const isWeb = Platform.OS === 'web';
+  const isLargeScreen = screenWidth > 768; // Detectar pantallas grandes
+  const theme = useTheme();
 
   useEffect(() => {
     loadData();
@@ -61,38 +72,42 @@ export default function GraficosTicketsScreen() {
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" />
-      </View>
+      <SafeAreaView style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={styles.center}>
+          <ActivityIndicator size="large" />
+        </View>
+      </SafeAreaView>
     );
   }
 
   if (error) {
     return (
-      <View style={styles.errorContainer}>
-        <Ionicons name="cloud-offline" size={50} color="#FF3B30" />
-        <Text style={styles.errorTextCentered}>Error al cargar los datos: {error}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={loadData}>
-          <Text style={styles.retryButtonText}>Reintentar</Text>
-        </TouchableOpacity>
-      </View>
+      <SafeAreaView style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={styles.errorContainer}>
+          <Ionicons name="cloud-offline" size={50} color="#FF3B30" />
+          <ThemedText style={styles.errorTextCentered}>Error al cargar los datos: {error}</ThemedText>
+          <TouchableOpacity style={styles.retryButton} onPress={loadData}>
+            <ThemedText style={styles.retryButtonText}>Reintentar</ThemedText>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
     );
   }
 
   const filteredFerias = selectedYear === 'Todas las fechas'
     ? ferias
     : selectedYear
-    ? ferias.filter(feria => new Date(feria.fecha).getFullYear().toString() === selectedYear)
-    : ferias;
+      ? ferias.filter(feria => new Date(feria.fecha).getFullYear().toString() === selectedYear)
+      : ferias;
 
   const filteredTickets = selectedYear === 'Todas las fechas'
     ? tickets
     : selectedYear
-    ? tickets.filter(ticket => {
+      ? tickets.filter(ticket => {
         const feria = ferias.find(f => f.idFeria === ticket.idFeria);
         return feria && new Date(feria.fecha).getFullYear().toString() === selectedYear;
       })
-    : tickets;
+      : tickets;
 
   const ticketsActivosFiltered = filteredTickets.filter(t => t.estado === 'ACTIVO');
   const feriaMapFiltered = Object.fromEntries(filteredFerias.map(f => [String(f.idFeria), f.nombre]));
@@ -106,69 +121,89 @@ export default function GraficosTicketsScreen() {
   const porcentajeUsoPorFeriaFiltered = generadosPorFeriaFiltered.map((gen, i) => gen > 0 ? Math.round((usadosPorFeriaFiltered[i] / gen) * 100) : 0);
 
   const chartConfig = {
-    backgroundGradientFrom: '#ffffff',
-    backgroundGradientTo: '#ffffff',
+    backgroundGradientFrom: theme.background,
+    backgroundGradientTo: theme.background,
     color: (opacity = 1) => `rgba(0, 122, 255, ${opacity})`,
     strokeWidth: 2,
     barPercentage: 0.5,
     useShadowColorFromDataset: false,
     decimalPlaces: 0,
+    labelColor: (opacity = 1) => theme.text,
   };
 
-  const screenWidth = Dimensions.get('window').width;
   const barWidth = Math.max(feriaLabelsFiltered.length * 180, screenWidth - 40);
 
   return (
-    <View style={styles.container}>
-      <NavigationHeader 
+    <SafeAreaView style={[styles.container, { paddingTop: insets.top, backgroundColor: theme.background }]}>
+      <NavigationHeader
         availableYears={availableYears}
         selectedYear={selectedYear}
         onYearChange={handleYearChange}
       />
       <ScrollView style={styles.scrollView}>
-        <View style={styles.content}>
-          <Text style={styles.title}>Gráficos de Tickets</Text>
+        <View style={[styles.content, isLargeScreen && styles.contentLarge]}>
+          <ThemedText type="title" style={styles.title}>Gráficos de Tickets</ThemedText>
 
-          <View style={styles.chartContainer}>
-            <Text style={styles.chartTitle}>Porcentaje de uso de tickets por Feria</Text>
+          <ThemedView type="card" style={[styles.chartContainer, isLargeScreen && styles.chartContainerLarge]}>
+            <ThemedText type="subtitle" style={styles.chartTitle}>Porcentaje de uso de tickets por Feria</ThemedText>
             {feriasUnicasFiltered.map((feria, i) => (
-              <View key={feria || i} style={styles.progressItem}>
-                <Text style={styles.progressLabel}>{feriaLabelsFiltered[i]}</Text>
-                <View style={styles.progressBarRow}>
-                  <ProgressBar
-                    progress={generadosPorFeriaFiltered[i] > 0 ? usadosPorFeriaFiltered[i] / generadosPorFeriaFiltered[i] : 0}
-                    color="#34C759"
-                    style={styles.progressBar}
-                  />
-                  <Text style={styles.progressPercent}>{porcentajeUsoPorFeriaFiltered[i]}%</Text>
-                </View>
+              <View key={feria || i} style={[styles.progressItem, isLargeScreen && styles.progressItemLarge]}>
+                <ThemedText style={[styles.progressLabel, isLargeScreen && styles.progressLabelLarge]}>
+                  {feriaLabelsFiltered[i]}
+                </ThemedText>
+                {isLargeScreen ? (
+                  <View style={styles.progressBarRowLarge}>
+                    <View style={styles.progressBarContainerLarge}>
+                      <ProgressBar
+                        progress={generadosPorFeriaFiltered[i] > 0 ? usadosPorFeriaFiltered[i] / generadosPorFeriaFiltered[i] : 0}
+                        color={theme.success}
+                        style={styles.progressBarLarge}
+                      />
+                    </View>
+                    <ThemedText style={styles.progressPercentLarge}>{porcentajeUsoPorFeriaFiltered[i]}%</ThemedText>
+                  </View>
+                ) : (
+                  <View style={styles.progressBarRow}>
+                    <View style={styles.progressBarContainer}>
+                      <ProgressBar
+                        progress={generadosPorFeriaFiltered[i] > 0 ? usadosPorFeriaFiltered[i] / generadosPorFeriaFiltered[i] : 0}
+                        color={theme.success}
+                        style={styles.progressBar}
+                      />
+                    </View>
+                    <ThemedText style={styles.progressPercent}>{porcentajeUsoPorFeriaFiltered[i]}%</ThemedText>
+                  </View>
+                )}
               </View>
             ))}
             <View style={styles.legendRow}>
-              <View style={styles.legendItem}><View style={[styles.legendColor, {backgroundColor:'#34C759'}]} /><Text style={styles.legendText}>% de uso</Text></View>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendColor, { backgroundColor: theme.success }]} />
+                <ThemedText style={styles.legendText}>% de uso</ThemedText>
+              </View>
             </View>
-          </View>
+          </ThemedView>
 
-          <View style={styles.chartContainer}>
-            <Text style={styles.chartTitle}>Distribución de Uso</Text>
+          <ThemedView type="card" style={[styles.chartContainer, isLargeScreen && styles.chartContainerLarge]}>
+            <ThemedText type="subtitle" style={styles.chartTitle}>Distribución de Uso</ThemedText>
             <PieChart
               data={[
                 {
                   name: 'Usados',
                   population: usadosPorFeriaFiltered.reduce((a, b, i) => a + Math.min(b, generadosPorFeriaFiltered[i]), 0),
-                  color: 'rgba(52, 199, 89, 0.8)',
-                  legendFontColor: '#7F7F7F',
+                  color: `${theme.success}CC`,
+                  legendFontColor: theme.text,
                   legendFontSize: 12,
                 },
                 {
                   name: 'No Usados',
                   population: noUsadosPorFeriaFiltered.reduce((a, b) => a + b, 0),
-                  color: 'rgba(255, 149, 0, 0.8)',
-                  legendFontColor: '#7F7F7F',
+                  color: `${theme.warning}CC`,
+                  legendFontColor: theme.text,
                   legendFontSize: 12,
                 }
               ]}
-              width={screenWidth - 40}
+              width={isLargeScreen ? screenWidth - 40 : screenWidth - 40}
               height={220}
               chartConfig={chartConfig}
               accessor="population"
@@ -176,37 +211,36 @@ export default function GraficosTicketsScreen() {
               paddingLeft="15"
               absolute
             />
-          </View>
+          </ThemedView>
 
-          <View style={styles.summaryContainer}>
-            <Text style={styles.chartTitle}>Resumen por Feria</Text>
+          <ThemedView type="card" style={[styles.summaryContainer, isLargeScreen && styles.summaryContainerLarge]}>
+            <ThemedText type="subtitle" style={styles.chartTitle}>Resumen por Feria</ThemedText>
             {feriasUnicasFiltered.map((feria, i) => (
-              <View key={feria || i} style={styles.summaryItem}>
-                <Text style={styles.feriaName}>{feriaLabelsFiltered[i]}</Text>
+              <ThemedView type="card" key={feria || i} style={styles.summaryItem}>
+                <ThemedText type="subtitle" style={styles.feriaName}>{feriaLabelsFiltered[i]}</ThemedText>
                 <View style={styles.summaryStats}>
-                  <Text style={styles.statText}>Generados: <Text style={{color:'#007AFF'}}>{generadosPorFeriaFiltered[i]}</Text></Text>
-                  <Text style={[styles.statText, styles.usedText]}>Usados: {usadosPorFeriaFiltered[i]}</Text>
-                  <Text style={[styles.statText, styles.unusedText]}>No usados: {noUsadosPorFeriaFiltered[i]}</Text>
+                  <ThemedText style={styles.statText}>Generados: <ThemedText style={{ color: theme.buttonPrimary }}>{generadosPorFeriaFiltered[i]}</ThemedText></ThemedText>
+                  <ThemedText style={[styles.statText, { color: theme.success }]}>Usados: {usadosPorFeriaFiltered[i]}</ThemedText>
+                  <ThemedText style={[styles.statText, { color: theme.warning }]}>No usados: {noUsadosPorFeriaFiltered[i]}</ThemedText>
                   {incoherenciasFiltered[i] && (
-                    <Ionicons name="warning" size={18} color="#FF3B30" style={{marginLeft:4}} />
+                    <Ionicons name="warning" size={18} color={theme.error} style={{ marginLeft: 4 }} />
                   )}
                 </View>
                 {incoherenciasFiltered[i] && (
-                  <Text style={styles.warningText}>¡Más usados que generados!</Text>
+                  <ThemedText style={[styles.warningText, { color: theme.error }]}>¡Más usados que generados!</ThemedText>
                 )}
-              </View>
+              </ThemedView>
             ))}
-          </View>
+          </ThemedView>
         </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
   },
   scrollView: {
     flex: 1,
@@ -217,8 +251,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   content: {
-    padding: 10,
+    padding: 16,
     paddingBottom: 30,
+  },
+  contentLarge: {
+    padding: 24,
   },
   title: {
     fontSize: 22,
@@ -227,29 +264,30 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   chartContainer: {
-    backgroundColor: 'white',
     borderRadius: 10,
-    padding: 10,
+    padding: 16,
     marginBottom: 16,
-    elevation: 2,
+  },
+  chartContainerLarge: {
+    padding: 24,
   },
   chartTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    marginBottom: 8,
+    marginBottom: 12,
     textAlign: 'center',
   },
   summaryContainer: {
-    backgroundColor: 'white',
     borderRadius: 10,
-    padding: 10,
+    padding: 16,
     marginBottom: 16,
-    elevation: 2,
+  },
+  summaryContainerLarge: {
+    padding: 24,
   },
   summaryItem: {
     marginBottom: 10,
     padding: 8,
-    backgroundColor: '#f8f8f8',
     borderRadius: 8,
   },
   feriaName: {
@@ -264,16 +302,8 @@ const styles = StyleSheet.create({
   },
   statText: {
     fontSize: 13,
-    color: '#666',
-  },
-  usedText: {
-    color: '#34C759',
-  },
-  unusedText: {
-    color: '#FF9500',
   },
   warningText: {
-    color: '#FF3B30',
     fontSize: 12,
     marginTop: 2,
     fontWeight: 'bold',
@@ -281,7 +311,7 @@ const styles = StyleSheet.create({
   legendRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: 8,
+    marginTop: 12,
     gap: 16,
   },
   legendItem: {
@@ -297,35 +327,68 @@ const styles = StyleSheet.create({
   },
   legendText: {
     fontSize: 13,
-    color: '#333',
   },
   progressItem: {
-    marginBottom: 14,
+    marginBottom: 16,
+    paddingHorizontal: 4,
   },
   progressLabel: {
     fontSize: 15,
     fontWeight: 'bold',
-    marginBottom: 2,
-    color: '#333',
+    marginBottom: 8,
+    flexShrink: 1,
   },
   progressBarRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    width: '100%',
+  },
+  progressBarContainer: {
+    flex: 1,
+    marginRight: 12,
   },
   progressBar: {
-    flex: 1,
     height: 16,
     borderRadius: 8,
-    backgroundColor: '#e0e0e0',
-    marginRight: 8,
+    width: '100%',
   },
   progressPercent: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: 'bold',
-    color: '#34C759',
-    minWidth: 40,
+    minWidth: 45,
     textAlign: 'right',
+    flexShrink: 0,
+  },
+  progressItemLarge: {
+    marginBottom: 20,
+    paddingHorizontal: 8,
+  },
+  progressLabelLarge: {
+    fontSize: 16,
+    marginBottom: 10,
+  },
+  progressBarRowLarge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    minHeight: 24,
+  },
+  progressBarContainerLarge: {
+    flex: 1,
+    marginRight: 24,
+    paddingRight: 8,
+  },
+  progressBarLarge: {
+    height: 20,
+    borderRadius: 10,
+    width: '100%',
+  },
+  progressPercentLarge: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    minWidth: 60,
+    textAlign: 'right',
+    flexShrink: 0,
   },
   errorContainer: {
     flex: 1,
@@ -334,21 +397,18 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   errorTextCentered: {
-    color: '#FF3B30',
     fontSize: 16,
     textAlign: 'center',
     marginTop: 10,
     marginBottom: 20,
   },
   retryButton: {
-    backgroundColor: '#007AFF',
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 8,
   },
   retryButtonText: {
-    color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
   },
-}); 
+});

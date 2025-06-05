@@ -4,39 +4,49 @@
     "slug": "LaUveTickets",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
-    "scheme": "lauvetickets",
+    "icon": "./assets/images/v.png",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/v.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#f5f5f5"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.la-uve.lauvetickets",
+      "config": {
+        "usesNonExemptEncryption": false
+      },
+      "icon": "./assets/images/v.png"
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./assets/images/v.png",
+        "backgroundColor": "#f5f5f5"
       },
-      "edgeToEdgeEnabled": true
+      "package": "com.lauve.lauvetickets"
     },
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "permitAllDomainOrigin": true,
+      "favicon": "./assets/images/v.png"
     },
     "plugins": [
-      "expo-router",
-      [
-        "expo-splash-screen",
-        {
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
-          "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
-        }
-      ]
+      "expo-router"
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "scheme": "lauvetickets",
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "af84d2a0-4a11-4494-a698-6b23bab417bd"
+      }
     }
   }
 }

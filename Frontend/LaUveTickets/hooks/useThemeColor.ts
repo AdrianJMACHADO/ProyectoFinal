@@ -4,18 +4,44 @@
  */
 
 import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
+import { useColorScheme } from 'react-native';
 
+type ColorScheme = 'light' | 'dark';
+type ColorKey = keyof typeof Colors.light;
+
+/**
+ * Hook personalizado para manejar los colores del tema
+ * @param colorName - Nombre del color a obtener
+ * @param props - Propiedades opcionales para sobrescribir el color
+ * @returns El color correspondiente al tema actual
+ */
 export function useThemeColor(
-  props: { light?: string; dark?: string },
-  colorName: keyof typeof Colors.light & keyof typeof Colors.dark
+  colorName: ColorKey,
+  props?: { light?: string; dark?: string }
 ) {
-  const theme = useColorScheme() ?? 'light';
-  const colorFromProps = props[theme];
+  const theme = useColorScheme() as ColorScheme;
+  const colorFromProps = props?.[theme];
 
   if (colorFromProps) {
     return colorFromProps;
-  } else {
-    return Colors[theme][colorName];
   }
+
+  return Colors[theme][colorName];
+}
+
+/**
+ * Hook para obtener el tema actual completo
+ * @returns El objeto de colores del tema actual
+ */
+export function useTheme() {
+  const theme = useColorScheme() as ColorScheme;
+  return Colors[theme];
+}
+
+/**
+ * Hook para obtener el esquema de color actual
+ * @returns 'light' | 'dark'
+ */
+export function useColorSchemeType(): ColorScheme {
+  return useColorScheme() as ColorScheme;
 }

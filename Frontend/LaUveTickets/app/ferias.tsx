@@ -1,9 +1,13 @@
+import { ThemedText } from '@/components/ThemedText';
+import { ThemedView } from '@/components/ThemedView';
+import { useTheme } from '@/hooks/useThemeColor';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
-import { useNavigation } from 'expo-router';
+import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Modal, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, FlatList, Modal, Platform, SafeAreaView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NavigationHeader } from '../components/NavigationHeader';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -17,8 +21,11 @@ interface Feria {
 const FERIAS_API = 'http://va-server.duckdns.org:3000/api/feria';
 
 const FeriasScreen: React.FC = () => {
-  const navigation = useNavigation();
+  const router = useRouter();
   const { logout } = useAuth();
+  const theme = useTheme();
+  const screenWidth = Dimensions.get('window').width;
+  const isMobile = screenWidth < 600;
 
   const [ferias, setFerias] = useState<Feria[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -32,6 +39,10 @@ const FeriasScreen: React.FC = () => {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [modalError, setModalError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  // Hook para obtener las áreas seguras
+  const insets = useSafeAreaInsets();
 
   // Cargar ferias
   const loadFerias = async () => {
@@ -148,64 +159,287 @@ const FeriasScreen: React.FC = () => {
 
   // Renderizar feria
   const renderFeria = ({ item }: { item: Feria }) => (
-    <View style={styles.feriaItem}>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.feriaTitle}>{item.nombre}</Text>
-        <Text style={styles.feriaField}>ID: {item.idFeria}</Text>
-        <Text style={styles.feriaField}>Fecha: {item.fecha}</Text>
+    <ThemedView type="card" style={styles.feriaItem}>
+      <View style={styles.feriaContent}>
+        <View style={styles.feriaInfo}>
+          <ThemedText type="title" style={styles.feriaTitle}>{item.nombre}</ThemedText>
+          <ThemedText style={styles.feriaDate}>
+            {format(new Date(item.fecha), 'dd/MM/yyyy')}
+          </ThemedText>
+        </View>
+        <TouchableOpacity 
+          style={[styles.editButton, { backgroundColor: theme.buttonPrimary }]} 
+          onPress={() => openEditModal(item)}
+        >
+          <Ionicons name="pencil" size={20} color="white" />
+          <ThemedText type="button" style={styles.editButtonText}>Editar</ThemedText>
+        </TouchableOpacity>
       </View>
-      <TouchableOpacity style={styles.editButton} onPress={() => openEditModal(item)}>
-        <Text style={styles.editButtonText}>Editar</Text>
-      </TouchableOpacity>
-    </View>
+    </ThemedView>
   );
 
-  // Filtrar ferias por año seleccionado
-  const filteredFerias = selectedYear === 'Todas las fechas'
-    ? ferias
-    : selectedYear
-    ? ferias.filter(feria => new Date(feria.fecha).getFullYear().toString() === selectedYear)
-    : ferias;
+  // Filtrar ferias por año y término de búsqueda
+  const filteredFerias = ferias.filter(feria => {
+    const matchesSearch = searchQuery.toLowerCase() === '' || 
+      feria.nombre.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesYear = selectedYear === 'Todas las fechas' || 
+      new Date(feria.fecha).getFullYear().toString() === selectedYear;
+    return matchesSearch && matchesYear;
+  });
+
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+    },
+    content: {
+      flex: 1,
+    },
+    searchContainer: {
+      flexDirection: 'row',
+      padding: 16,
+      gap: 16,
+      alignItems: 'center',
+    },
+    searchInput: {
+      flex: 1,
+      height: 40,
+      borderWidth: 1,
+      borderRadius: 20,
+      paddingHorizontal: 15,
+    },
+    createButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 10,
+      borderRadius: 8,
+      gap: 8,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    errorContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 20,
+    },
+    errorTextCentered: {
+      textAlign: 'center',
+      marginTop: 10,
+      marginBottom: 20,
+    },
+    retryButton: {
+      padding: 15,
+      borderRadius: 8,
+      minWidth: 120,
+      alignItems: 'center',
+    },
+    listContainer: {
+      padding: 16,
+    },
+    feriaItem: {
+      marginBottom: 16,
+      borderRadius: 12,
+      padding: 16,
+      elevation: 3,
+      shadowColor: theme.shadow,
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.2,
+      shadowRadius: 4,
+    },
+    feriaContent: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    feriaInfo: {
+      flex: 1,
+      marginRight: 16,
+    },
+    feriaTitle: {
+      marginBottom: 4,
+    },
+    feriaDate: {
+      fontSize: 14,
+      opacity: 0.7,
+    },
+    editButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 12,
+      borderRadius: 8,
+      gap: 8,
+      minWidth: 120,
+    },
+    editButtonText: {
+      color: 'white',
+    },
+    emptyContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 20,
+    },
+    emptyText: {
+      textAlign: 'center',
+    },
+    fab: {
+      position: 'absolute',
+      right: 16,
+      bottom: 16,
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      justifyContent: 'center',
+      alignItems: 'center',
+      elevation: 4,
+      shadowColor: theme.shadow,
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.2,
+      shadowRadius: 4,
+    },
+    modalOverlay: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    modalContent: {
+      width: '90%',
+      maxWidth: 500,
+      borderRadius: 12,
+      padding: 20,
+      elevation: 8,
+      shadowColor: theme.shadow,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.25,
+      shadowRadius: 6,
+    },
+    modalTitle: {
+      marginBottom: 20,
+    },
+    input: {
+      borderWidth: 1,
+      borderRadius: 8,
+      padding: 12,
+      marginBottom: 16,
+    },
+    inputError: {
+      borderColor: '#FF3B30',
+    },
+    inputGroup: {
+      marginBottom: 16,
+    },
+    label: {
+      marginBottom: 8,
+    },
+    errorText: {
+      color: '#FF3B30',
+      marginBottom: 16,
+    },
+    modalButtons: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginTop: 8,
+    },
+    modalButton: {
+      flex: 1,
+      padding: 12,
+      borderRadius: 8,
+      alignItems: 'center',
+      marginHorizontal: 4,
+      elevation: 3,
+      shadowColor: theme.shadow,
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.2,
+      shadowRadius: 4,
+    },
+    buttonText: {
+      color: 'white',
+    },
+  });
 
   if (error) {
     return (
-      <View style={styles.errorContainer}>
-        <Ionicons name="cloud-offline" size={50} color="#FF3B30" />
-        <Text style={styles.errorTextCentered}>Error al cargar las ferias: {error}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={loadFerias}>
-          <Text style={styles.retryButtonText}>Reintentar</Text>
-        </TouchableOpacity>
-      </View>
+      <SafeAreaView style={[styles.container, { paddingTop: insets.top, backgroundColor: theme.background }]}>
+        <View style={styles.errorContainer}>
+          <Ionicons name="cloud-offline" size={50} color={theme.error} />
+          <ThemedText type="subtitle" style={styles.errorTextCentered}>
+            Error al cargar las ferias: {error}
+          </ThemedText>
+          <TouchableOpacity 
+            style={[styles.retryButton, { backgroundColor: theme.buttonPrimary }]} 
+            onPress={loadFerias}
+          >
+            <ThemedText type="button" style={styles.buttonText}>Reintentar</ThemedText>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <NavigationHeader 
         availableYears={availableYears}
         selectedYear={selectedYear}
         onYearChange={handleYearChange}
       />
 
-      <TouchableOpacity style={styles.createButton} onPress={openCreateModal}>
-        <Text style={styles.createButtonText}>+ Nueva Feria</Text>
-      </TouchableOpacity>
-      {loading ? (
-        <ActivityIndicator size="large" color="#007AFF" style={{ marginTop: 40 }} />
-      ) : (
-        filteredFerias.length > 0 ? (
+      <View style={styles.content}>
+        <View style={styles.searchContainer}>
+          <TextInput
+            style={[styles.searchInput, { 
+              backgroundColor: theme.inputBackground,
+              borderColor: theme.border,
+              color: theme.text
+            }]}
+            placeholder="Buscar ferias..."
+            placeholderTextColor={theme.placeholder}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {!isMobile && (
+            <TouchableOpacity
+              style={[styles.createButton, { backgroundColor: theme.buttonPrimary }]}
+              onPress={openCreateModal}
+            >
+              <Ionicons name="add" size={20} color="white" />
+              <ThemedText type="button" style={styles.buttonText}>Nueva Feria</ThemedText>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={theme.buttonPrimary} />
+          </View>
+        ) : filteredFerias.length > 0 ? (
           <FlatList
             data={filteredFerias}
             keyExtractor={(item) => item.idFeria.toString()}
             renderItem={renderFeria}
-            contentContainerStyle={{ paddingBottom: 100 }}
+            contentContainerStyle={styles.listContainer}
           />
         ) : (
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No hay ferias disponibles para este año.</Text>
+            <ThemedText type="subtitle" style={styles.emptyText}>
+              No hay ferias disponibles para este año.
+            </ThemedText>
           </View>
-        )
-      )}
+        )}
+
+        {isMobile && (
+          <TouchableOpacity
+            style={[styles.fab, { backgroundColor: theme.buttonPrimary }]}
+            onPress={openCreateModal}
+          >
+            <Ionicons name="add" size={24} color="white" />
+          </TouchableOpacity>
+        )}
+      </View>
+
       {/* Modal de creación/edición */}
       <Modal
         visible={modalVisible}
@@ -213,18 +447,34 @@ const FeriasScreen: React.FC = () => {
         transparent
         onRequestClose={() => { setModalVisible(false); setModalError(null); }}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>{editMode ? 'Editar Feria' : 'Nueva Feria'}</Text>
+        <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
+          <ThemedView type="card" style={styles.modalContent}>
+            <ThemedText type="title" style={styles.modalTitle}>
+              {editMode ? 'Editar Feria' : 'Nueva Feria'}
+            </ThemedText>
+
             <TextInput
-              style={[styles.input, formErrors.nombre && styles.inputError]}
+              style={[
+                styles.input,
+                { 
+                  backgroundColor: theme.inputBackground,
+                  borderColor: formErrors.nombre ? theme.error : theme.border,
+                  color: theme.text
+                }
+              ]}
               placeholder="Nombre"
+              placeholderTextColor={theme.placeholder}
               value={form.nombre}
               onChangeText={(text) => setForm((f) => ({ ...f, nombre: text }))}
             />
-            {formErrors.nombre && <Text style={styles.errorText}>{formErrors.nombre}</Text>}
+            {formErrors.nombre && (
+              <ThemedText style={[styles.errorText, { color: theme.error }]}>
+                {formErrors.nombre}
+              </ThemedText>
+            )}
+
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Fecha</Text>
+              <ThemedText style={styles.label}>Fecha</ThemedText>
               {Platform.OS === 'web' ? (
                 <input
                   type="date"
@@ -232,255 +482,89 @@ const FeriasScreen: React.FC = () => {
                   onChange={(e) => {
                     setForm((f) => ({ ...f, fecha: e.target.value }));
                   }}
-                  style={{ ...styles.input as any, paddingVertical: 10, paddingHorizontal: 10, height: 44, color: form.fecha ? '#222' : '#aaa'}}
+                  style={{
+                    ...styles.input as any,
+                    paddingVertical: 10,
+                    paddingHorizontal: 10,
+                    height: 44,
+                    color: form.fecha ? theme.text : theme.placeholder,
+                    backgroundColor: theme.inputBackground,
+                    borderColor: formErrors.fecha ? theme.error : theme.border,
+                  }}
                 />
               ) : (
                 <TouchableOpacity
-                  style={[styles.input, formErrors.fecha && styles.inputError]}
+                  style={[
+                    styles.input,
+                    {
+                      backgroundColor: theme.inputBackground,
+                      borderColor: formErrors.fecha ? theme.error : theme.border,
+                    }
+                  ]}
                   onPress={() => setShowDatePicker(true)}
                   activeOpacity={0.7}
                 >
-                  <Text style={{ color: form.fecha ? '#222' : '#aaa' }}>
-                    {form.fecha ? format(new Date(form.fecha), 'dd/MM/yyyy') : 'Selecciona una fecha'}
-                  </Text>
+                  <ThemedText style={form.fecha ? {} : { color: theme.placeholder }}>
+                    {form.fecha ? format(new Date(form.fecha), 'dd/MM/yyyy') : 'Seleccionar fecha'}
+                  </ThemedText>
                 </TouchableOpacity>
               )}
-              {showDatePicker && Platform.OS !== 'web' && (
-                <DateTimePicker
-                  value={form.fecha ? new Date(form.fecha) : new Date()}
-                  mode="date"
-                  display="default"
-                  onChange={(_, date) => {
-                    setShowDatePicker(false);
-                    if (date) setForm((f) => ({ ...f, fecha: format(date, 'yyyy-MM-dd') }));
-                  }}
-                />
-              )}
-              {formErrors.fecha && <Text style={styles.errorText}>{formErrors.fecha}</Text>}
             </View>
-            {modalError && <Text style={styles.modalSaveErrorText}>{modalError}</Text>}
+            {formErrors.fecha && (
+              <ThemedText style={[styles.errorText, { color: theme.error }]}>
+                {formErrors.fecha}
+              </ThemedText>
+            )}
+
+            {modalError && (
+              <ThemedText style={[styles.errorText, { color: theme.error }]}>
+                {modalError}
+              </ThemedText>
+            )}
+
             <View style={styles.modalButtons}>
-              {loading ? (
-                <ActivityIndicator size="small" color="#007AFF" />
-              ) : (
-                <TouchableOpacity style={styles.saveButton} onPress={async () => {
-                    const success = await saveFeria();
-                    if (success) {
-                      setModalVisible(false);
-                      setModalError(null);
-                    }
-                  }}>
-                  <Text style={styles.saveButtonText}>{editMode ? 'Guardar Cambios' : 'Crear'}</Text>
-                </TouchableOpacity>
-              )}
-              <TouchableOpacity style={styles.cancelButton} onPress={() => { setModalVisible(false); setModalError(null); }} disabled={loading}>
-                <Text style={styles.cancelButtonText}>Cancelar</Text>
+              <TouchableOpacity
+                style={[styles.modalButton, { backgroundColor: theme.buttonPrimary }]}
+                onPress={async () => {
+                  const success = await saveFeria();
+                  if (success) {
+                    setModalVisible(false);
+                  }
+                }}
+              >
+                <ThemedText type="button" style={styles.buttonText}>
+                  {editMode ? 'Guardar' : 'Crear'}
+                </ThemedText>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, { backgroundColor: theme.error }]}
+                onPress={() => {
+                  setModalVisible(false);
+                  setModalError(null);
+                }}
+              >
+                <ThemedText type="button" style={styles.buttonText}>Cancelar</ThemedText>
               </TouchableOpacity>
             </View>
-          </View>
+          </ThemedView>
         </View>
       </Modal>
-    </View>
+
+      {Platform.OS !== 'web' && showDatePicker && (
+        <DateTimePicker
+          value={form.fecha ? new Date(form.fecha) : new Date()}
+          mode="date"
+          display="default"
+          onChange={(event, selectedDate) => {
+            setShowDatePicker(false);
+            if (selectedDate) {
+              setForm((f) => ({ ...f, fecha: selectedDate.toISOString() }));
+            }
+          }}
+        />
+      )}
+    </SafeAreaView>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F8F8F8',
-    paddingTop: 0,
-    paddingHorizontal: 0,
-  },
-  headerContainer: {},
-  header: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 16,
-    color: '#222',
-    alignSelf: 'center',
-  },
-  createButton: {
-    backgroundColor: '#007AFF',
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  createButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  feriaItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  feriaTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  feriaField: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 2,
-  },
-  editButton: {
-    backgroundColor: '#FFA500',
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 6,
-    marginLeft: 10,
-  },
-  editButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 24,
-    width: '90%',
-    maxWidth: 400,
-    elevation: 5,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 16,
-    color: '#222',
-    alignSelf: 'center',
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 5,
-    padding: 10,
-    fontSize: 16,
-    backgroundColor: '#F5F5F5',
-  },
-  inputError: {
-    borderColor: '#FF3B30',
-  },
-  errorText: {
-    color: '#FF3B30',
-    marginBottom: 8,
-    fontSize: 13,
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 10,
-  },
-  saveButton: {
-    backgroundColor: '#007AFF',
-    paddingVertical: 10,
-    paddingHorizontal: 18,
-    borderRadius: 6,
-  },
-  saveButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  cancelButton: {
-    backgroundColor: '#ccc',
-    paddingVertical: 10,
-    paddingHorizontal: 18,
-    borderRadius: 6,
-  },
-  cancelButtonText: {
-    color: '#333',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  bottomBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    padding: 16,
-    backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderColor: '#eee',
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  bottomButton: {
-    backgroundColor: '#007AFF',
-    paddingVertical: 10,
-    paddingHorizontal: 18,
-    borderRadius: 6,
-  },
-  bottomButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 15,
-  },
-  inputGroup: {
-    marginBottom: 10,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 5,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  errorTextCentered: {
-    color: '#FF3B30',
-    fontSize: 16,
-    textAlign: 'center',
-    marginTop: 10,
-    marginBottom: 20,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-  },
-  modalSaveErrorText: {
-      color: '#ff3b30',
-      textAlign: 'center',
-      marginBottom: 10,
-      fontSize: 14,
-  },
-  retryButton: {
-      backgroundColor: '#007AFF',
-      paddingVertical: 10,
-      paddingHorizontal: 20,
-      borderRadius: 8,
-  },
-  retryButtonText: {
-      color: '#fff',
-      fontSize: 16,
-      fontWeight: 'bold',
-  },
-});
 
 export default FeriasScreen; 

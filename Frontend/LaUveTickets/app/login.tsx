@@ -1,6 +1,9 @@
+import { ThemedText } from '@/components/ThemedText';
+import { ThemedView } from '@/components/ThemedView';
+import { useTheme } from '@/hooks/useThemeColor';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function LoginScreen() {
@@ -9,6 +12,7 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const router = useRouter();
+  const theme = useTheme();
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -16,8 +20,8 @@ export default function LoginScreen() {
       return;
     }
 
-    setLoading(true);
     try {
+      setLoading(true);
       await login(email, password);
       router.replace('/tickets');
     } catch (error) {
@@ -27,98 +31,93 @@ export default function LoginScreen() {
     }
   };
 
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      justifyContent: 'center',
+    },
+    formContainer: {
+      margin: 20,
+      padding: 20,
+      borderRadius: 10,
+      elevation: 8,
+      shadowColor: theme.shadow,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.25,
+      shadowRadius: 6,
+      maxWidth: 500,
+      alignSelf: 'center',
+    },
+    title: {
+      textAlign: 'center',
+      marginBottom: 10,
+    },
+    subtitle: {
+      textAlign: 'center',
+      marginBottom: 30,
+    },
+    input: {
+      padding: 15,
+      borderRadius: 5,
+      marginBottom: 15,
+      borderWidth: 1,
+      fontSize: 16,
+    },
+    button: {
+      padding: 15,
+      borderRadius: 5,
+      alignItems: 'center',
+    },
+    buttonText: {
+      color: 'white',
+    },
+  });
+
   return (
-    <View style={styles.container}>
-      <View style={styles.formContainer}>
-        <Text style={styles.title}>LaUve Tickets</Text>
-        <Text style={styles.subtitle}>Inicia sesión para continuar</Text>
-        
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <ThemedView type="card" style={styles.formContainer}>
+        <ThemedText type="title" style={styles.title}>LaUve Tickets</ThemedText>
+        <ThemedText type="subtitle" style={styles.subtitle}>Inicia sesión para continuar</ThemedText>
+
         <TextInput
-          style={styles.input}
+          style={[styles.input, { 
+            backgroundColor: theme.inputBackground,
+            borderColor: theme.border,
+            color: theme.text
+          }]}
           placeholder="Email"
+          placeholderTextColor={theme.placeholder}
           value={email}
           onChangeText={setEmail}
-          keyboardType="email-address"
           autoCapitalize="none"
-          autoComplete="email"
+          keyboardType="email-address"
         />
-        
+
         <TextInput
-          style={styles.input}
+          style={[styles.input, { 
+            backgroundColor: theme.inputBackground,
+            borderColor: theme.border,
+            color: theme.text
+          }]}
           placeholder="Contraseña"
+          placeholderTextColor={theme.placeholder}
           value={password}
           onChangeText={setPassword}
           secureTextEntry
-          autoComplete="password"
         />
-        
-        <TouchableOpacity 
-          style={[styles.button, loading && styles.buttonDisabled]}
+
+        <TouchableOpacity
+          style={[styles.button, { backgroundColor: theme.buttonPrimary }]}
           onPress={handleLogin}
           disabled={loading}
         >
-          <Text style={styles.buttonText}>
-            {loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
-          </Text>
+          {loading ? (
+            <ActivityIndicator color="white" />
+          ) : (
+            <ThemedText type="button" style={styles.buttonText}>Iniciar Sesión</ThemedText>
+          )}
         </TouchableOpacity>
-      </View>
+      </ThemedView>
     </View>
   );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-    justifyContent: 'center',
-  },
-  formContainer: {
-    backgroundColor: 'white',
-    margin: 20,
-    padding: 20,
-    borderRadius: 10,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    maxWidth: 500,
-    alignSelf: 'center',
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 10,
-    color: '#007AFF',
-  },
-  subtitle: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 30,
-    color: '#666',
-  },
-  input: {
-    backgroundColor: '#f8f8f8',
-    padding: 15,
-    borderRadius: 5,
-    marginBottom: 15,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    fontSize: 16,
-  },
-  button: {
-    backgroundColor: '#007AFF',
-    padding: 15,
-    borderRadius: 5,
-    alignItems: 'center',
-  },
-  buttonDisabled: {
-    backgroundColor: '#ccc',
-  },
-  buttonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-}); 
+} 

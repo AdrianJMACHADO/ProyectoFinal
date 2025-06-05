@@ -1,17 +1,69 @@
-import { Picker } from '@react-native-picker/picker';
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Keyboard,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  View,
+  useColorScheme
+} from 'react-native';
 import { Feria, Ticket } from '../app/tickets';
 
-type TicketEditModalProps = {
+interface TicketEditModalProps {
   isVisible: boolean;
   onClose: () => void;
   onSave: (ticket: Partial<Ticket>) => Promise<void>;
-  ticket: Partial<Ticket> | null;
+  ticket?: Ticket;
   ferias: Feria[];
   isCreating: boolean;
   isLoading: boolean;
   error: string | null;
+}
+
+// Colores optimizados
+const colors = {
+  light: {
+    background: '#ffffff',
+    text: '#1a1a1a',
+    inputBackground: '#f0f0f0',
+    border: '#cccccc',
+    modalBackground: 'rgba(0, 0, 0, 0.5)',
+    buttonPrimary: '#007AFF',
+    buttonDanger: '#FF3B30',
+    placeholder: '#888888',
+    card: '#ffffff',
+    shadow: '#000',
+    pickerSelected: '#007AFF',
+    pickerText: '#1a1a1a',
+    sectionHeader: '#6d6d6d',
+    dropdownBackground: '#ffffff',
+    dropdownBorder: '#cccccc',
+    dropdownText: '#333333',
+  },
+  dark: {
+    background: '#121212',
+    text: '#f0f0f0',
+    inputBackground: '#1e1e1e',
+    border: '#444444',
+    modalBackground: 'rgba(0, 0, 0, 0.8)',
+    buttonPrimary: '#0a84ff',
+    buttonDanger: '#ff453a',
+    placeholder: '#aaaaaa',
+    card: '#1e1e1e',
+    shadow: '#fff',
+    pickerSelected: '#0a84ff',
+    pickerText: '#f0f0f0',
+    sectionHeader: '#aaaaaa',
+    dropdownBackground: '#2a2a2a',
+    dropdownBorder: '#555555',
+    dropdownText: '#f0f0f0',
+  }
 };
 
 export const TicketEditModal: React.FC<TicketEditModalProps> = ({
@@ -24,6 +76,13 @@ export const TicketEditModal: React.FC<TicketEditModalProps> = ({
   isLoading,
   error,
 }) => {
+  const colorScheme = useColorScheme();
+  const theme = colors[colorScheme || 'light'];
+  const [dropdownVisible, setDropdownVisible] = useState(false);
+  const [currentDropdown, setCurrentDropdown] = useState<'feria' | 'estado' | null>(null);
+  const dropdownRef = useRef<View>(null);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
+
   const [form, setForm] = useState<Partial<Ticket>>({
     idTicket: ticket?.idTicket,
     idFeria: ticket?.idFeria,
@@ -64,6 +123,8 @@ export const TicketEditModal: React.FC<TicketEditModalProps> = ({
   useEffect(() => {
     if (!isVisible) {
       setFormErrors({});
+      setDropdownVisible(false);
+      setCurrentDropdown(null);
     }
   }, [isVisible]);
 
@@ -71,10 +132,11 @@ export const TicketEditModal: React.FC<TicketEditModalProps> = ({
     const errors: { nombre?: string; tipo?: string; cantidad_inicial?: string; idFeria?: string } = {};
     if (!form.nombre || !form.nombre.trim()) errors.nombre = 'El nombre es obligatorio';
     if (!form.tipo || !form.tipo.trim()) errors.tipo = 'El tipo es obligatorio';
-    if (isCreating && (form.cantidad_inicial === undefined || form.cantidad_inicial === null || form.cantidad_inicial < 0)) errors.cantidad_inicial = 'La cantidad inicial debe ser un número positivo al crear';
+    if (isCreating && (form.cantidad_inicial === undefined || form.cantidad_inicial === null || form.cantidad_inicial < 0)) 
+      errors.cantidad_inicial = 'La cantidad inicial debe ser un número positivo al crear';
 
     if (isCreating && (form.idFeria === undefined || form.idFeria === null)) {
-        errors.idFeria = 'Debe seleccionar una feria';
+      errors.idFeria = 'Debe seleccionar una feria';
     }
 
     setFormErrors(errors);
@@ -87,6 +149,206 @@ export const TicketEditModal: React.FC<TicketEditModalProps> = ({
     }
   };
 
+  const toggleDropdown = (type: 'feria' | 'estado') => {
+    Keyboard.dismiss();
+
+    // Cierra el dropdown si ya está abierto para el mismo tipo
+    if (dropdownVisible && currentDropdown === type) {
+        setDropdownVisible(false);
+        setCurrentDropdown(null);
+        return;
+    }
+    
+    // Abre el dropdown para el tipo seleccionado
+    setCurrentDropdown(type);
+    // Esperar a que el ref se adjunte al elemento correcto
+    setTimeout(() => {
+      if (dropdownRef.current) {
+        dropdownRef.current.measure((x, y, width, height, pageX, pageY) => {
+          setDropdownPosition({
+            top: pageY + height + 4,
+            left: pageX,
+            width: width
+          });
+          setDropdownVisible(true);
+        });
+      }
+    }, 50); // Pequeño retraso para asegurar que el ref está listo
+  };
+
+  const handleSelectOption = (value: string | number) => {
+    if (currentDropdown === 'feria') {
+      setForm((f: Partial<Ticket>) => ({ ...f, idFeria: value !== '' ? Number(value) : null }));
+    } else if (currentDropdown === 'estado') {
+      setForm((f: Partial<Ticket>) => ({ ...f, estado: value as 'ACTIVO' | 'INACTIVO' }));
+    }
+    setDropdownVisible(false);
+  };
+
+  const selectedFeriaName = form.idFeria 
+    ? ferias.find((f: Feria) => f.idFeria === form.idFeria)?.nombre 
+    : 'Selecciona una Feria';
+
+  // Estilos dinámicos
+  const styles = StyleSheet.create({
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: theme.modalBackground,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    modalContent: {
+      backgroundColor: theme.card,
+      padding: 25,
+      borderRadius: 12,
+      width: '90%',
+      maxWidth: 450,
+      maxHeight: '90%',
+      elevation: 8,
+      shadowColor: theme.shadow,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.25,
+      shadowRadius: 6,
+    },
+    modalTitle: {
+      fontSize: 22,
+      fontWeight: 'bold',
+      marginBottom: 20,
+      textAlign: 'center',
+      color: theme.text,
+    },
+    scrollContainer: {
+      flexGrow: 1,
+    },
+    inputGroup: {
+      marginBottom: 18,
+    },
+    label: {
+      fontSize: 16,
+      fontWeight: '600',
+      marginBottom: 8,
+      color: theme.text,
+    },
+    input: {
+      borderWidth: 1,
+      borderColor: theme.border,
+      borderRadius: 8,
+      padding: 14,
+      fontSize: 16,
+      backgroundColor: theme.inputBackground,
+      color: theme.text,
+    },
+    inputError: {
+      borderColor: '#ff3b30',
+      borderWidth: 1.5,
+    },
+    errorText: {
+      color: '#ff3b30',
+      fontSize: 14,
+      marginTop: 6,
+      fontWeight: '500',
+    },
+    modalButtons: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginTop: 25,
+      gap: 12,
+    },
+    saveErrorText: {
+      color: '#ff3b30',
+      textAlign: 'center',
+      marginBottom: 15,
+      fontWeight: '600',
+      fontSize: 15,
+    },
+    button: {
+      flex: 1,
+      padding: 16,
+      borderRadius: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: theme.shadow,
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.2,
+      shadowRadius: 4,
+      elevation: 3,
+    },
+    saveButton: {
+      backgroundColor: theme.buttonPrimary,
+    },
+    cancelButton: {
+      backgroundColor: theme.buttonDanger,
+    },
+    buttonText: {
+      color: 'white',
+      textAlign: 'center',
+      fontSize: 17,
+      fontWeight: 'bold',
+    },
+    disabledInput: {
+      backgroundColor: theme.inputBackground,
+      color: theme.placeholder,
+    },
+    pickerWrapper: {
+      borderWidth: 1,
+      borderColor: theme.border,
+      borderRadius: 8,
+      backgroundColor: theme.inputBackground,
+      padding: 14,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    pickerText: {
+      fontSize: 16,
+      color: theme.text,
+      flex: 1,
+    },
+    pickerPlaceholder: {
+      color: theme.placeholder,
+    },
+    dropdownContainer: {
+      position: 'absolute',
+      backgroundColor: theme.dropdownBackground,
+      borderWidth: 1,
+      borderColor: theme.dropdownBorder,
+      borderRadius: 8,
+      padding: 10,
+      maxHeight: 200,
+      zIndex: 1000,
+      elevation: 10,
+      shadowColor: theme.shadow,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 6,
+    },
+    dropdownItem: {
+      paddingVertical: 12,
+      paddingHorizontal: 15,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.border,
+    },
+    dropdownItemText: {
+      fontSize: 16,
+      color: theme.dropdownText,
+    },
+    dropdownItemSelected: {
+      backgroundColor: `${theme.buttonPrimary}20`,
+    },
+    dropdownItemSelectedText: {
+      fontWeight: 'bold',
+      color: theme.buttonPrimary,
+    },
+    sectionDivider: {
+      height: 1,
+      backgroundColor: theme.border,
+      marginVertical: 20,
+    },
+    icon: {
+      marginLeft: 10,
+    }
+  });
+
   return (
     <Modal
       visible={isVisible}
@@ -94,207 +356,227 @@ export const TicketEditModal: React.FC<TicketEditModalProps> = ({
       transparent={true}
       onRequestClose={onClose}
     >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>{isCreating ? 'Crear Ticket' : 'Editar Ticket'}</Text>
+      <TouchableWithoutFeedback onPress={() => setDropdownVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <TouchableWithoutFeedback>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>{isCreating ? 'Crear Ticket' : 'Editar Ticket'}</Text>
 
-          {isCreating && (
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Feria</Text>
-              <View style={styles.pickerWrapper}>
-                <Picker
-                  selectedValue={form.idFeria != null ? form.idFeria.toString() : ''}
-                  onValueChange={(itemValue) => setForm(f => ({ ...f, idFeria: itemValue !== '' ? Number(itemValue) : null }))}
-                  style={styles.picker}
-                >
-                  <Picker.Item label="Selecciona una Feria" value="" />
-                  {ferias.map(feria => (
-                    <Picker.Item key={feria.idFeria} label={feria.nombre} value={String(feria.idFeria)} />
-                  ))}
-                </Picker>
+              <ScrollView contentContainerStyle={styles.scrollContainer}>
+                {isCreating && (
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Feria</Text>
+                    <TouchableOpacity 
+                      style={[styles.pickerWrapper, formErrors.idFeria && styles.inputError]}
+                      onPress={() => toggleDropdown('feria')}
+                      ref={currentDropdown === 'feria' ? dropdownRef : null}
+                    >
+                      <Text style={[
+                        styles.pickerText, 
+                        !form.idFeria && styles.pickerPlaceholder
+                      ]}>
+                        {selectedFeriaName}
+                      </Text>
+                      <Ionicons 
+                        name={dropdownVisible && currentDropdown === 'feria' ? "chevron-up" : "chevron-down"} 
+                        size={20} 
+                        color={theme.text} 
+                        style={styles.icon}
+                      />
+                    </TouchableOpacity>
+                    {formErrors.idFeria && <Text style={styles.errorText}>{formErrors.idFeria}</Text>}
+                  </View>
+                )}
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Nombre</Text>
+                  <TextInput
+                    style={[styles.input, formErrors.nombre && styles.inputError]}
+                    placeholder="Nombre del Ticket"
+                    placeholderTextColor={theme.placeholder}
+                    value={form.nombre}
+                    onChangeText={(text) => setForm(f => ({ ...f, nombre: text }))}
+                  />
+                  {formErrors.nombre && <Text style={styles.errorText}>{formErrors.nombre}</Text>}
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Tipo</Text>
+                  <TextInput
+                    style={[styles.input, formErrors.tipo && styles.inputError]}
+                    placeholder="Tipo (0: Invitación, 1: 2x1, 3: 50%dto)"
+                    placeholderTextColor={theme.placeholder}
+                    value={form.tipo}
+                    onChangeText={(text) => setForm(f => ({ ...f, tipo: text }))}
+                  />
+                  {formErrors.tipo && <Text style={styles.errorText}>{formErrors.tipo}</Text>}
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Cantidad Inicial</Text>
+                  <TextInput
+                    style={[styles.input, !isCreating && styles.disabledInput, formErrors.cantidad_inicial && styles.inputError]}
+                    placeholder="Cantidad inicial de usos"
+                    placeholderTextColor={theme.placeholder}
+                    keyboardType="numeric"
+                    value={form.cantidad_inicial != null ? form.cantidad_inicial.toString() : ''}
+                    onChangeText={(text) => setForm(f => ({ ...f, cantidad_inicial: parseInt(text) || 0 }))}
+                    editable={isCreating}
+                  />
+                  {formErrors.cantidad_inicial && <Text style={styles.errorText}>{formErrors.cantidad_inicial}</Text>}
+                </View>
+
+                {!isCreating && (
+                  <>
+                    <View style={styles.sectionDivider} />
+                    
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.label}>Usos</Text>
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Usos actuales"
+                        placeholderTextColor={theme.placeholder}
+                        keyboardType="numeric"
+                        value={form.usos != null ? form.usos.toString() : ''}
+                        onChangeText={(text) => setForm(f => ({ ...f, usos: parseInt(text) || 0 }))}
+                      />
+                    </View>
+                    
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.label}>Estado</Text>
+                      <TouchableOpacity 
+                        style={[styles.pickerWrapper]}
+                        onPress={() => toggleDropdown('estado')}
+                        ref={currentDropdown === 'estado' ? dropdownRef : null}
+                      >
+                        <Text style={styles.pickerText}>{form.estado || 'ACTIVO'}</Text>
+                        <Ionicons 
+                          name={dropdownVisible && currentDropdown === 'estado' ? "chevron-up" : "chevron-down"} 
+                          size={20} 
+                          color={theme.text} 
+                          style={styles.icon}
+                        />
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                )}
+
+                {error && <Text style={styles.saveErrorText}>{error}</Text>}
+
+                {/* <View style={styles.sectionDivider} /> */} 
+              </ScrollView>
+
+              <View style={styles.modalButtons}>
+                {isLoading ? (
+                  <ActivityIndicator size="large" color={theme.buttonPrimary} />
+                ) : (
+                  <>
+                    <TouchableOpacity 
+                      style={[styles.button, styles.saveButton]} 
+                      onPress={handleSave} 
+                      disabled={isLoading}
+                    >
+                      <Text style={styles.buttonText}>{isCreating ? 'Crear' : 'Guardar Cambios'}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={[styles.button, styles.cancelButton]} 
+                      onPress={onClose} 
+                      disabled={isLoading}
+                    >
+                      <Text style={styles.buttonText}>Cancelar</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
               </View>
-              {formErrors.idFeria && <Text style={styles.errorText}>{formErrors.idFeria}</Text>}
+            </View>
+          </TouchableWithoutFeedback>
+
+          {/* Dropdown para selección */}
+          {dropdownVisible && (
+            <View style={[
+              styles.dropdownContainer,
+              {
+                top: dropdownPosition.top,
+                left: dropdownPosition.left,
+                width: dropdownPosition.width
+              }
+            ]}>
+              <ScrollView>
+                {currentDropdown === 'feria' && (
+                  <>
+                    <TouchableOpacity 
+                      style={[
+                        styles.dropdownItem,
+                        !form.idFeria && styles.dropdownItemSelected
+                      ]}
+                      onPress={() => handleSelectOption('')}
+                    >
+                      <Text style={[
+                        styles.dropdownItemText,
+                        !form.idFeria && styles.dropdownItemSelectedText
+                      ]}>
+                        Selecciona una Feria
+                      </Text>
+                    </TouchableOpacity>
+                    
+                    {ferias.map(feria => (
+                      <TouchableOpacity 
+                        key={feria.idFeria} 
+                        style={[
+                          styles.dropdownItem,
+                          form.idFeria === feria.idFeria && styles.dropdownItemSelected
+                        ]}
+                        onPress={() => handleSelectOption(feria.idFeria)}
+                      >
+                        <Text style={[
+                          styles.dropdownItemText,
+                          form.idFeria === feria.idFeria && styles.dropdownItemSelectedText
+                        ]}>
+                          {feria.nombre}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </>
+                )}
+                
+                {currentDropdown === 'estado' && (
+                  <>
+                    <TouchableOpacity 
+                      style={[
+                        styles.dropdownItem,
+                        form.estado === 'ACTIVO' && styles.dropdownItemSelected
+                      ]}
+                      onPress={() => handleSelectOption('ACTIVO')}
+                    >
+                      <Text style={[
+                        styles.dropdownItemText,
+                        form.estado === 'ACTIVO' && styles.dropdownItemSelectedText
+                      ]}>
+                        ACTIVO
+                      </Text>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity 
+                      style={[
+                        styles.dropdownItem,
+                        form.estado === 'INACTIVO' && styles.dropdownItemSelected
+                      ]}
+                      onPress={() => handleSelectOption('INACTIVO')}
+                    >
+                      <Text style={[
+                        styles.dropdownItemText,
+                        form.estado === 'INACTIVO' && styles.dropdownItemSelectedText
+                      ]}>
+                        INACTIVO
+                      </Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+              </ScrollView>
             </View>
           )}
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Nombre</Text>
-            <TextInput
-              style={[styles.input, formErrors.nombre && styles.inputError]}
-              placeholder="Nombre del Ticket"
-              value={form.nombre}
-              onChangeText={(text) => setForm(f => ({ ...f, nombre: text }))}
-            />
-            {formErrors.nombre && <Text style={styles.errorText}>{formErrors.nombre}</Text>}
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Tipo</Text>
-            <TextInput
-              style={[styles.input, formErrors.tipo && styles.inputError]}
-              placeholder="Tipo (0: Invitación, 1: 2x1, 3: 50%dto)"
-              value={form.tipo}
-              onChangeText={(text) => setForm(f => ({ ...f, tipo: text }))}
-            />
-            {formErrors.tipo && <Text style={styles.errorText}>{formErrors.tipo}</Text>}
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Cantidad Inicial</Text>
-            <TextInput
-              style={[styles.input, !isCreating && styles.disabledInput, formErrors.cantidad_inicial && styles.inputError]}
-              placeholder="Cantidad inicial de usos"
-              keyboardType="numeric"
-              value={form.cantidad_inicial != null ? form.cantidad_inicial.toString() : ''}
-              onChangeText={(text) => setForm(f => ({ ...f, cantidad_inicial: parseInt(text) || 0 }))}
-              editable={isCreating}
-            />
-            {formErrors.cantidad_inicial && <Text style={styles.errorText}>{formErrors.cantidad_inicial}</Text>}
-          </View>
-
-          {!isCreating && (
-            <>
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Usos</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Usos actuales"
-                  keyboardType="numeric"
-                  value={form.usos != null ? form.usos.toString() : ''}
-                  onChangeText={(text) => setForm(f => ({ ...f, usos: parseInt(text) || 0 }))}
-                />
-              </View>
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Estado</Text>
-                <View style={styles.pickerWrapper}>
-                  <Picker
-                    selectedValue={form.estado || 'ACTIVO'}
-                    onValueChange={(itemValue) => setForm(f => ({ ...f, estado: itemValue }))}
-                    style={styles.picker}
-                  >
-                    <Picker.Item label="ACTIVO" value="ACTIVO" />
-                    <Picker.Item label="INACTIVO" value="INACTIVO" />
-                  </Picker>
-                </View>
-              </View>
-            </>
-          )}
-
-          {error && <Text style={styles.saveErrorText}>{error}</Text>}
-
-          <View style={styles.modalButtons}>
-            {isLoading ? (
-              <ActivityIndicator size="small" color="#007AFF" />
-            ) : (
-              <TouchableOpacity style={[styles.button, styles.saveButton]} onPress={handleSave} disabled={isLoading}>
-                <Text style={styles.buttonText}>{isCreating ? 'Crear' : 'Guardar Cambios'}</Text>
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={onClose} disabled={isLoading}>
-              <Text style={styles.buttonText}>Cancelar</Text>
-            </TouchableOpacity>
-          </View>
         </View>
-      </View>
+      </TouchableWithoutFeedback>
     </Modal>
   );
 };
-
-const styles = StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    backgroundColor: 'white',
-    padding: 20,
-    borderRadius: 10,
-    width: '90%',
-    maxWidth: 400,
-    elevation: 5,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 15,
-    textAlign: 'center',
-  },
-  inputGroup: {
-    marginBottom: 15,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    marginBottom: 5,
-    color: '#333',
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 5,
-    padding: 10,
-    fontSize: 16,
-    backgroundColor: '#f9f9f9',
-  },
-  inputError: {
-      borderColor: '#ff3b30',
-  },
-  errorText: {
-      color: '#ff3b30',
-      fontSize: 12,
-      marginTop: 5,
-  },
-   readOnlyText: {
-       fontSize: 16,
-       padding: 10,
-       backgroundColor: '#e9e9e9',
-       borderRadius: 5,
-       color: '#555',
-   },
-  modalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: 20,
-  },
-  saveErrorText: {
-      color: '#ff3b30',
-      textAlign: 'center',
-      marginBottom: 10,
-  },
-  button: {
-    flex: 1,
-    padding: 15,
-    borderRadius: 5,
-    marginHorizontal: 5,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  saveButton: {
-    backgroundColor: '#007AFF',
-  },
-  cancelButton: {
-    backgroundColor: '#FF3B30',
-  },
-  buttonText: {
-    color: 'white',
-    textAlign: 'center',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  disabledInput: {
-    backgroundColor: '#e9e9e9',
-    color: '#666',
-  },
-   pickerWrapper: {
-       borderWidth: 1,
-       borderColor: '#ddd',
-       borderRadius: 5,
-       backgroundColor: '#f9f9f9',
-   },
-   picker: {
-       height: 50,
-       width: '100%',
-   },
-}); 

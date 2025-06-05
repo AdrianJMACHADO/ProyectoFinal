@@ -1,8 +1,13 @@
+import { ThemedText } from '@/components/ThemedText';
+import { ThemedView } from '@/components/ThemedView';
+import { useTheme } from '@/hooks/useThemeColor';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, SafeAreaView, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { PieChart } from 'react-native-chart-kit';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NavigationHeader } from '../components/NavigationHeader';
 import { Feria } from './tickets';
 
@@ -13,6 +18,12 @@ export default function GraficosFeriasScreen() {
   const [availableYears, setAvailableYears] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
+  // Hook para obtener las áreas seguras
+  const insets = useSafeAreaInsets();
+  const theme = useTheme();
+  const screenWidth = Dimensions.get('window').width;
+  const isLargeScreen = screenWidth > 768;
+
   useEffect(() => {
     loadData();
   }, []);
@@ -21,8 +32,8 @@ export default function GraficosFeriasScreen() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('http://va-server.duckdns.org:3000/api/feria');
-      const data = await res.json();
+      const response = await fetch('http://va-server.duckdns.org:3000/api/feria');
+      const data = await response.json();
       if (data.ok) {
         setFerias(data.datos);
         const years: string[] = Array.from(new Set(data.datos.map((feria: Feria) => new Date(feria.fecha).getFullYear().toString())));
@@ -55,67 +66,72 @@ export default function GraficosFeriasScreen() {
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" />
-      </View>
+      <SafeAreaView style={[styles.container, { paddingTop: insets.top, backgroundColor: theme.background }]}>
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={theme.buttonPrimary} />
+        </View>
+      </SafeAreaView>
     );
   }
 
   if (error) {
     return (
-      <View style={styles.errorContainer}>
-        <Ionicons name="cloud-offline" size={50} color="#FF3B30" />
-        <Text style={styles.errorTextCentered}>Error al cargar los datos: {error}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={loadData}>
-          <Text style={styles.retryButtonText}>Reintentar</Text>
-        </TouchableOpacity>
-      </View>
+      <SafeAreaView style={[styles.container, { paddingTop: insets.top, backgroundColor: theme.background }]}>
+        <View style={styles.errorContainer}>
+          <Ionicons name="cloud-offline" size={50} color={theme.error} />
+          <ThemedText style={styles.errorTextCentered}>Error al cargar los datos: {error}</ThemedText>
+          <TouchableOpacity 
+            style={[styles.retryButton, { backgroundColor: theme.buttonPrimary }]} 
+            onPress={loadData}
+          >
+            <ThemedText style={styles.retryButtonText}>Reintentar</ThemedText>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
     );
   }
 
   const filteredFerias = selectedYear === 'Todas las fechas'
     ? ferias
     : selectedYear
-    ? ferias.filter(feria => new Date(feria.fecha).getFullYear().toString() === selectedYear)
-    : ferias;
+      ? ferias.filter(feria => new Date(feria.fecha).getFullYear().toString() === selectedYear)
+      : ferias;
 
   const feriasPorMes = filteredFerias.reduce((acc, feria) => {
-    const mes = format(new Date(feria.fecha), 'MMMM');
+    const mes = format(new Date(feria.fecha), 'MMMM', { locale: es });
     acc[mes] = (acc[mes] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
 
   const chartConfig = {
-    backgroundGradientFrom: '#ffffff',
-    backgroundGradientTo: '#ffffff',
+    backgroundGradientFrom: theme.background,
+    backgroundGradientTo: theme.background,
     color: (opacity = 1) => `rgba(0, 122, 255, ${opacity})`,
     strokeWidth: 2,
     barPercentage: 0.5,
     useShadowColorFromDataset: false,
+    labelColor: (opacity = 1) => theme.text,
   };
 
-  const screenWidth = Dimensions.get('window').width;
-
   return (
-    <View style={styles.container}>
-      <NavigationHeader 
+    <SafeAreaView style={[styles.container, { paddingTop: insets.top, backgroundColor: theme.background }]}>
+      <NavigationHeader
         availableYears={availableYears}
         selectedYear={selectedYear}
         onYearChange={handleYearChange}
       />
       <ScrollView style={styles.scrollView}>
-        <View style={styles.content}>
-          <Text style={styles.title}>Gráficos de Ferias</Text>
+        <View style={[styles.content, isLargeScreen && styles.contentLarge]}>
+          <ThemedText type="title" style={styles.title}>Gráficos de Ferias</ThemedText>
 
-          {/* Gráfico de Distribución de Ferias */}
-          <View style={styles.chartContainer}>
-            <Text style={styles.chartTitle}>Distribución de Ferias</Text>
+          <ThemedView type="card" style={[styles.chartContainer, isLargeScreen && styles.chartContainerLarge]}>
+            <ThemedText type="subtitle" style={styles.chartTitle}>Distribución de Ferias</ThemedText>
             <PieChart
               data={Object.entries(feriasPorMes).map(([key, value], index) => ({
                 name: key,
                 population: value,
-                color: `hsl(${index * 60}, 40%, 60%)`,
-                legendFontColor: '#7F7F7F',
+                color: `hsl(${index * 60}, 70%, 60%)`,
+                legendFontColor: theme.text,
                 legendFontSize: 12,
               }))}
               width={screenWidth - 40}
@@ -126,28 +142,26 @@ export default function GraficosFeriasScreen() {
               paddingLeft="15"
               absolute
             />
-          </View>
+          </ThemedView>
 
-          {/* Resumen por Mes */}
-          <View style={styles.summaryContainer}>
-            <Text style={styles.chartTitle}>Resumen por Mes</Text>
+          <ThemedView type="card" style={[styles.summaryContainer, isLargeScreen && styles.summaryContainerLarge]}>
+            <ThemedText type="subtitle" style={styles.chartTitle}>Resumen por Mes</ThemedText>
             {Object.entries(feriasPorMes).map(([mes, cantidad]) => (
-              <View key={mes} style={styles.summaryItem}>
-                <Text style={styles.mesName}>{mes}</Text>
-                <Text style={styles.cantidadText}>{cantidad} ferias</Text>
-              </View>
+              <ThemedView type="card" key={mes} style={styles.summaryItem}>
+                <ThemedText type="subtitle" style={styles.mesName}>{mes}</ThemedText>
+                <ThemedText style={[styles.cantidadText, { color: theme.buttonPrimary }]}>{cantidad} ferias</ThemedText>
+              </ThemedView>
             ))}
-          </View>
+          </ThemedView>
         </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
   },
   scrollView: {
     flex: 1,
@@ -158,33 +172,39 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   content: {
-    padding: 20,
+    padding: 16,
+    paddingBottom: 30,
+  },
+  contentLarge: {
+    padding: 24,
   },
   title: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: 'bold',
-    marginBottom: 20,
+    marginBottom: 16,
     textAlign: 'center',
   },
   chartContainer: {
-    backgroundColor: 'white',
     borderRadius: 10,
-    padding: 15,
-    marginBottom: 20,
-    elevation: 2,
+    padding: 16,
+    marginBottom: 16,
+  },
+  chartContainerLarge: {
+    padding: 24,
   },
   chartTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
-    marginBottom: 10,
+    marginBottom: 12,
     textAlign: 'center',
   },
   summaryContainer: {
-    backgroundColor: 'white',
     borderRadius: 10,
-    padding: 15,
-    marginBottom: 20,
-    elevation: 2,
+    padding: 16,
+    marginBottom: 16,
+  },
+  summaryContainerLarge: {
+    padding: 24,
   },
   summaryItem: {
     flexDirection: 'row',
@@ -192,7 +212,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 10,
     padding: 10,
-    backgroundColor: '#f8f8f8',
     borderRadius: 8,
   },
   mesName: {
@@ -201,7 +220,6 @@ const styles = StyleSheet.create({
   },
   cantidadText: {
     fontSize: 16,
-    color: '#007AFF',
     fontWeight: '500',
   },
   errorContainer: {
@@ -211,20 +229,17 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   errorTextCentered: {
-    color: '#FF3B30',
     fontSize: 16,
     textAlign: 'center',
     marginTop: 10,
     marginBottom: 20,
   },
   retryButton: {
-    backgroundColor: '#007AFF',
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 8,
   },
   retryButtonText: {
-    color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
   },

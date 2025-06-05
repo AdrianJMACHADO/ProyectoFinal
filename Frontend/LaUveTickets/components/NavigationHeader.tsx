@@ -1,9 +1,18 @@
+import { useTheme } from '@/hooks/useThemeColor';
 import { Ionicons } from '@expo/vector-icons';
-import { Picker } from '@react-native-picker/picker';
 import { useRouter } from 'expo-router';
-import React from 'react';
-import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import {
+    Dimensions,
+    Modal,
+    ScrollView,
+    StyleSheet,
+    TouchableOpacity,
+    View
+} from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
+import { ThemedText } from './ThemedText';
+import { ThemedView } from './ThemedView';
 
 interface NavigationHeaderProps {
   availableYears?: string[];
@@ -11,134 +20,241 @@ interface NavigationHeaderProps {
   onYearChange?: (year: string | null) => void;
 }
 
-export function NavigationHeader({ availableYears, selectedYear, onYearChange }: NavigationHeaderProps) {
+export function NavigationHeader({ 
+  availableYears, 
+  selectedYear, 
+  onYearChange
+}: NavigationHeaderProps) {
   const router = useRouter();
   const { logout } = useAuth();
+  const [showYearModal, setShowYearModal] = useState(false);
+  const screenWidth = Dimensions.get('window').width;
+  const isSmallScreen = screenWidth < 600;
+  const theme = useTheme();
 
   const handleLogout = async () => {
     await logout();
     router.replace('/login');
   };
 
+  const handleYearSelect = (year: string | null) => {
+    onYearChange?.(year);
+    setShowYearModal(false);
+  };
+
+  const YearSelector = () => (
+    <Modal
+      visible={showYearModal}
+      transparent={true}
+      animationType="fade"
+      onRequestClose={() => setShowYearModal(false)}
+    >
+      <TouchableOpacity 
+        style={styles.modalOverlay}
+        activeOpacity={1}
+        onPress={() => setShowYearModal(false)}
+      >
+        <ThemedView type="card" style={styles.modalContent}>
+          <View style={styles.modalHeader}>
+            <ThemedText type="subtitle">Seleccionar Año</ThemedText>
+            <TouchableOpacity 
+              style={styles.closeButton}
+              onPress={() => setShowYearModal(false)}
+            >
+              <Ionicons name="close" size={20} color={theme.text} />
+            </TouchableOpacity>
+          </View>
+          
+          <ScrollView style={styles.optionsList} showsVerticalScrollIndicator={false}>
+            {availableYears?.map((year) => (
+              <TouchableOpacity
+                key={year}
+                style={[
+                  styles.optionItem,
+                  selectedYear === year && { backgroundColor: `${theme.buttonPrimary}20` }
+                ]}
+                onPress={() => handleYearSelect(year)}
+              >
+                <ThemedText style={[
+                  styles.optionText,
+                  selectedYear === year && { color: theme.buttonPrimary, fontWeight: '600' }
+                ]}>
+                  {year}
+                </ThemedText>
+                {selectedYear === year && (
+                  <Ionicons name="checkmark" size={20} color={theme.buttonPrimary} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </ThemedView>
+      </TouchableOpacity>
+    </Modal>
+  );
+
+  const styles = StyleSheet.create({
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: 10,
+      borderBottomWidth: 1,
+      minHeight: 60,
+    },
+    navButtons: {
+      flexDirection: 'row',
+      gap: 12,
+      flex: 1,
+    },
+    navButtonsSmall: {
+      gap: 8,
+    },
+    rightSection: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 16,
+    },
+    navButton: {
+      padding: 8,
+      borderRadius: 8,
+      backgroundColor: theme.inputBackground,
+      shadowColor: theme.shadow,
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.2,
+      shadowRadius: 4,
+      elevation: 3,
+    },
+    navButtonSmall: {
+      padding: 6,
+      borderRadius: 6,
+    },
+    yearSelector: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      minWidth: 120,
+      maxWidth: 140,
+      borderWidth: 1,
+      borderRadius: 25,
+    },
+    yearSelectorSmall: {
+      minWidth: 100,
+      maxWidth: 120,
+    },
+    yearText: {
+      fontSize: 14,
+      marginRight: 8,
+    },
+    yearTextSmall: {
+      fontSize: 12,
+    },
+    logoutButton: {
+      padding: 8,
+      borderRadius: 8,
+      backgroundColor: `${theme.error}20`,
+      shadowColor: theme.shadow,
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.2,
+      shadowRadius: 4,
+      elevation: 3,
+    },
+    logoutButtonSmall: {
+      padding: 6,
+      borderRadius: 6,
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    modalContent: {
+      width: '80%',
+      maxWidth: 400,
+      borderRadius: 12,
+      padding: 20,
+    },
+    modalHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 20,
+    },
+    closeButton: {
+      padding: 8,
+    },
+    optionsList: {
+      maxHeight: 300,
+    },
+    optionItem: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: 12,
+      borderRadius: 8,
+      marginBottom: 8,
+    },
+    optionText: {
+      fontSize: 16,
+    },
+  });
+
   return (
-    <View style={styles.header}>
-      <View style={styles.navButtons}>
+    <ThemedView type="card" style={styles.header}>
+      <View style={[styles.navButtons, isSmallScreen && styles.navButtonsSmall]}>
         <TouchableOpacity 
-          style={styles.navButton} 
+          style={[styles.navButton, isSmallScreen && styles.navButtonSmall]} 
           onPress={() => router.push('/tickets')}
         >
-          <Ionicons name="ticket" size={24} color="#007AFF" />
+          <Ionicons name="ticket" size={isSmallScreen ? 20 : 24} color={theme.buttonPrimary} />
         </TouchableOpacity>
         <TouchableOpacity 
-          style={styles.navButton} 
+          style={[styles.navButton, isSmallScreen && styles.navButtonSmall]} 
           onPress={() => router.push('/ferias')}
         >
-          <Ionicons name="calendar" size={24} color="#007AFF" />
+          <Ionicons name="calendar" size={isSmallScreen ? 20 : 24} color={theme.buttonPrimary} />
         </TouchableOpacity>
         <TouchableOpacity 
-          style={styles.navButton} 
+          style={[styles.navButton, isSmallScreen && styles.navButtonSmall]} 
           onPress={() => router.push('/graficos-tickets')}
         >
-          <Ionicons name="bar-chart" size={24} color="#007AFF" />
+          <Ionicons name="bar-chart" size={isSmallScreen ? 20 : 24} color={theme.buttonPrimary} />
         </TouchableOpacity>
         <TouchableOpacity 
-          style={styles.navButton} 
+          style={[styles.navButton, isSmallScreen && styles.navButtonSmall]} 
           onPress={() => router.push('/graficos-ferias')}
         >
-          <Ionicons name="pie-chart" size={24} color="#007AFF" />
+          <Ionicons name="pie-chart" size={isSmallScreen ? 20 : 24} color={theme.buttonPrimary} />
         </TouchableOpacity>
       </View>
 
-      {availableYears && availableYears.length > 0 && selectedYear !== undefined && onYearChange && (
-        <View style={styles.yearPickerContainer}>
-          <Picker
-            selectedValue={selectedYear}
-            style={styles.yearPicker}
-            dropdownIconColor="#007AFF"
-            onValueChange={(itemValue: string | null) => onYearChange(itemValue)}
+      <View style={styles.rightSection}>
+        {availableYears && availableYears.length > 0 && selectedYear !== undefined && onYearChange && (
+          <TouchableOpacity
+            style={[styles.yearSelector, isSmallScreen && styles.yearSelectorSmall, {
+              backgroundColor: theme.inputBackground,
+              borderColor: theme.border
+            }]}
+            onPress={() => setShowYearModal(true)}
           >
-            {availableYears.map(year => (
-              <Picker.Item 
-                key={year} 
-                label={year} 
-                value={year} 
-                style={selectedYear === year ? styles.selectedItem : styles.pickerItem}
-              />
-            ))}
-          </Picker>
-        </View>
-      )}
+            <ThemedText style={[styles.yearText, isSmallScreen && styles.yearTextSmall]} numberOfLines={1}>
+              {selectedYear || 'Año'}
+            </ThemedText>
+            <Ionicons name="chevron-down" size={16} color={theme.buttonPrimary} />
+          </TouchableOpacity>
+        )}
 
-      <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-        <Ionicons name="log-out" size={24} color="#FF3B30" />
-      </TouchableOpacity>
-    </View>
+        <TouchableOpacity 
+          onPress={handleLogout} 
+          style={[styles.logoutButton, isSmallScreen && styles.logoutButtonSmall]}
+        >
+          <Ionicons name="log-out" size={isSmallScreen ? 20 : 24} color={theme.error} />
+        </TouchableOpacity>
+      </View>
+
+      <YearSelector />
+    </ThemedView>
   );
 }
-
-const styles = StyleSheet.create({
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 10,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  navButtons: {
-    flexDirection: 'row',
-    gap: 15,
-  },
-  navButton: {
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: '#f0f0f0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  logoutButton: {
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: '#ffebeb',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  yearPickerContainer: {
-    width: 120,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 25,
-    justifyContent: 'center',
-    height: 40,
-    padding: 0,
-    backgroundColor: '#f8f8f8',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
-    overflow: 'hidden',
-  },
-  yearPicker: {
-    height: 40,
-    color: '#333',
-    fontWeight: '500',
-  },
-  pickerItem: {
-    fontSize: 16,
-    color: '#555',
-  },
-  selectedItem: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#007AFF',
-    backgroundColor: '#e6f2ff',
-  },
-});

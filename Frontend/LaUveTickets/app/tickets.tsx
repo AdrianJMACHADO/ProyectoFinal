@@ -1,9 +1,12 @@
+import { ThemedText } from '@/components/ThemedText';
+import { ThemedView } from '@/components/ThemedView';
+import { useTheme } from '@/hooks/useThemeColor';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Button, Dimensions, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, FlatList, SafeAreaView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NavigationHeader } from '../components/NavigationHeader';
 import { QRGenerator } from '../components/QRGenerator';
 import { TicketEditModal } from '../components/TicketEditModal';
@@ -44,9 +47,176 @@ export default function TicketsScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
 
+  // Hook para obtener las áreas seguras
+  const insets = useSafeAreaInsets();
+
   // Nuevos estados para el modal de edición
   const [editModalLoading, setEditModalLoading] = useState(false);
   const [editModalError, setEditModalError] = useState<string | null>(null);
+
+  const theme = useTheme();
+
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+    },
+    content: {
+      flex: 1,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    errorContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 20,
+    },
+    errorText: {
+      textAlign: 'center',
+      marginBottom: 20,
+    },
+    retryButton: {
+      padding: 15,
+      borderRadius: 8,
+      minWidth: 120,
+      alignItems: 'center',
+    },
+    listContainer: {
+      padding: 16,
+    },
+    ticketCard: {
+      marginBottom: 16,
+      borderRadius: 12,
+      padding: 16,
+      elevation: 3,
+      shadowColor: theme.shadow,
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.2,
+      shadowRadius: 4,
+    },
+    ticketHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      marginBottom: 12,
+    },
+    ticketTitleContainer: {
+      flex: 1,
+      marginRight: 12,
+    },
+    ticketName: {
+      marginBottom: 4,
+    },
+    ticketFeria: {
+      fontSize: 14,
+      opacity: 0.7,
+    },
+    estadoButton: {
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 16,
+    },
+    estadoText: {
+      color: 'white',
+    },
+    ticketInfo: {
+      marginBottom: 16,
+    },
+    infoRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginBottom: 8,
+    },
+    progressContainer: {
+      height: 4,
+      backgroundColor: '#e0e0e0',
+      borderRadius: 2,
+      marginBottom: 8,
+      overflow: 'hidden',
+    },
+    progressBar: {
+      height: '100%',
+      borderRadius: 2,
+    },
+    dateText: {
+      fontSize: 14,
+    },
+    ticketActions: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    ticketActionsMobile: {
+      justifyContent: 'space-between',
+    },
+    ticketActionsWeb: {
+      justifyContent: 'flex-end',
+    },
+    actionButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 12,
+      borderRadius: 8,
+      gap: 8,
+      minWidth: 120,
+      elevation: 3,
+      shadowColor: theme.shadow,
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.2,
+      shadowRadius: 4,
+    },
+    buttonText: {
+      color: 'white',
+    },
+    fab: {
+      position: 'absolute',
+      right: 16,
+      bottom: 16,
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      justifyContent: 'center',
+      alignItems: 'center',
+      elevation: 4,
+      shadowColor: theme.shadow,
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.2,
+      shadowRadius: 4,
+    },
+    center: { 
+      flex: 1, 
+      justifyContent: 'center', 
+      alignItems: 'center' 
+    },
+    errorTextCentered: {
+      textAlign: 'center',
+      marginTop: 10,
+      marginBottom: 20,
+    },
+    searchContainer: {
+      flexDirection: 'row',
+      padding: 16,
+      gap: 16,
+      alignItems: 'center',
+    },
+    searchInput: {
+      flex: 1,
+      height: 40,
+      borderWidth: 1,
+      borderRadius: 20,
+      paddingHorizontal: 15,
+    },
+    createButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 10,
+      borderRadius: 8,
+      gap: 8,
+    },
+  });
 
   // Cargar tickets y ferias
   const loadData = async () => {
@@ -106,14 +276,12 @@ export default function TicketsScreen() {
 
   // Guardar ticket
   const handleSaveTicket = async (updatedTicket: Partial<Ticket>) => {
-    // Esta función ahora solo maneja la llamada a la API y devuelve éxito/error.
-    // La lógica de carga, error y cierre del modal se manejará en el onSave del modal.
     const isCreating = !updatedTicket.idTicket || updatedTicket.idTicket === 0;
     const url = `http://va-server.duckdns.org:3000/api/ticket${isCreating ? '' : `/${updatedTicket.idTicket}`}`;
     const method = isCreating ? 'POST' : 'PUT';
 
     const body = isCreating ? {
-      idFeria: updatedTicket.idFeria, // Asegurarse de que idFeria no sea undefined si es nueva creación
+      idFeria: updatedTicket.idFeria,
       nombre: updatedTicket.nombre,
       tipo: updatedTicket.tipo,
       cantidad_inicial: updatedTicket.cantidad_inicial,
@@ -139,14 +307,9 @@ export default function TicketsScreen() {
         return { success: false, message: data.mensaje || `Error HTTP ${res.status} al ${isCreating ? 'crear' : 'actualizar'} el ticket` };
       }
 
-      // Si tiene éxito
       if (isCreating) {
-        // Creación exitosa
-        // No mostramos alerta aquí, la manejaremos en el onSave del modal
         return { success: true, message: 'Ticket creado correctamente', newTicketId: data.datos?.idTicket };
       } else {
-        // Actualización exitosa
-        // No mostramos alerta aquí, la manejaremos en el onSave del modal
         return { success: true, message: 'Ticket actualizado correctamente' };
       }
 
@@ -167,20 +330,16 @@ export default function TicketsScreen() {
 
     if (result.success) {
       Alert.alert('Éxito', result.message);
-      // Recargar datos o navegar si fue creación
       if (creating && result.newTicketId) {
         router.push(`/tickets/${result.newTicketId}`);
       } else {
         await loadData();
       }
-      // Cerrar modal
       setEditModalVisible(false);
       setCreating(false);
       setSelectedTicket(null);
     } else {
-      // Mostrar error en el modal
       setEditModalError(result.message || 'Error desconocido al guardar');
-      // No cerrar el modal en caso de error
     }
   };
 
@@ -195,7 +354,6 @@ export default function TicketsScreen() {
 
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status} al cambiar estado`);
 
-      // Si la API devuelve éxito, recargar
       const data = await res.json();
       if (data.ok) {
         loadData();
@@ -210,276 +368,225 @@ export default function TicketsScreen() {
   };
 
   // Renderizar ticket
-  const renderTicket = ({ item }: { item: Ticket }) => (
-    <LinearGradient
-      colors={
-        item.estado === 'ACTIVO'
-          ? ['#FFFFFF', '#FFFFFF', '#34C759']  // Blanco -> Blanco -> Verde
-          : ['#FFFFFF', '#FFFFFF', '#FF3B30']  // Blanco -> Blanco -> Rojo
-      }
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 0 }}
-      style={styles.ticketItem}
-      locations={[0, 0.6, 1]}  // Puntos clave: 0%, 80% y 100%
-    >
-      <Text style={styles.ticketTitle}>{item.nombre} ({item.tipo})</Text>
-      <Text>Feria: {ferias.find(f => f.idFeria === item.idFeria)?.nombre || '-'}</Text>
-      <Text>Cantidad inicial: {item.cantidad_inicial}</Text>
-      <Text>Usos: {item.usos ?? 0}</Text>
-      <Text>Estado: {item.estado}</Text>
-      <Text>Fecha creación: {item.fecha_creacion ? format(new Date(item.fecha_creacion), 'dd/MM/yyyy') : '-'}</Text>
-      <View style={[styles.ticketActions, isMobile && styles.ticketActionsMobile]}>
-        <Button
-          title="Editar"
-          onPress={() => {
-            setSelectedTicket(item);
-            setEditModalVisible(true);
-          }}
-        />
-        <Button
-          title={item.estado === 'ACTIVO' ? 'Desactivar' : 'Activar'}
-          color={item.estado === 'ACTIVO' ? '#FF3B30' : '#34C759'}
-          onPress={() => handleToggleEstado(item)}
-        />
-        {item.estado === 'ACTIVO' && (
-          <Button
-            title="Generar QR"
-            color="#007AFF"
+  const renderTicket = ({ item }: { item: Ticket }) => {
+    const feria = ferias.find(f => f.idFeria === item.idFeria);
+    const usoPorcentaje = item.usos ? (item.usos / item.cantidad_inicial) * 100 : 0;
+    
+    return (
+      <ThemedView type="card" style={[
+        styles.ticketCard,
+        { 
+          borderLeftWidth: 4,
+          borderLeftColor: item.estado === 'ACTIVO' ? theme.success : theme.error,
+          backgroundColor: item.estado === 'ACTIVO' ? `${theme.success}10` : `${theme.error}10`
+        }
+      ]}>
+        <View style={styles.ticketHeader}>
+          <TouchableOpacity 
+            style={styles.ticketTitleContainer}
+            onPress={() => router.push(`/tickets/${item.idTicket}`)}
+          >
+            <ThemedText type="title" style={styles.ticketName}>{item.nombre}</ThemedText>
+            <ThemedText style={styles.ticketFeria}>{feria?.nombre || 'Sin feria'}</ThemedText>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => handleToggleEstado(item)}
+            style={[
+              styles.estadoButton,
+              { backgroundColor: item.estado === 'ACTIVO' ? theme.success : theme.error }
+            ]}
+          >
+            <ThemedText type="button" style={styles.estadoText}>
+              {item.estado}
+            </ThemedText>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.ticketInfo}>
+          <View style={styles.infoRow}>
+            <ThemedText>Tipo: {item.tipo}</ThemedText>
+            <ThemedText>Usos: {item.usos || 0}/{item.cantidad_inicial}</ThemedText>
+          </View>
+          <View style={styles.progressContainer}>
+            <View style={[styles.progressBar, { width: `${usoPorcentaje}%`, backgroundColor: theme.buttonPrimary }]} />
+          </View>
+          {item.fecha_creacion && (
+            <ThemedText style={styles.dateText}>
+              Creado: {format(new Date(item.fecha_creacion), 'dd/MM/yyyy')}
+            </ThemedText>
+          )}
+        </View>
+
+        <View style={[styles.ticketActions, isMobile ? styles.ticketActionsMobile : styles.ticketActionsWeb]}>
+          <TouchableOpacity
+            style={[
+              styles.actionButton,
+              { backgroundColor: theme.buttonPrimary },
+              isMobile && { flex: 1 }
+            ]}
             onPress={() => {
               setSelectedTicket(item);
               setQrModalVisible(true);
             }}
-          />
-        )}
-      </View>
-    </LinearGradient>
-  );
+          >
+            <Ionicons name="qr-code" size={20} color="white" />
+            <ThemedText type="button" style={styles.buttonText}>Ver QR</ThemedText>
+          </TouchableOpacity>
 
-  if (loading) return <View style={styles.center}><ActivityIndicator size="large" /></View>;
+          <TouchableOpacity
+            style={[
+              styles.actionButton,
+              { backgroundColor: theme.buttonPrimary },
+              isMobile && { flex: 1 }
+            ]}
+            onPress={() => {
+              setSelectedTicket(item);
+              setCreating(false);
+              setEditModalVisible(true);
+            }}
+          >
+            <Ionicons name="pencil" size={20} color="white" />
+            <ThemedText type="button" style={styles.buttonText}>Editar</ThemedText>
+          </TouchableOpacity>
+        </View>
+      </ThemedView>
+    );
+  };
+
+  if (loading) return (
+    <SafeAreaView style={[styles.container, { paddingTop: insets.top, backgroundColor: theme.background }]}>
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color={theme.buttonPrimary} />
+      </View>
+    </SafeAreaView>
+  );
 
   if (error) {
     return (
-      <View style={styles.errorContainer}>
-        <Ionicons name="cloud-offline" size={50} color="#FF3B30" />
-        <Text style={styles.errorTextCentered}>Error al cargar los tickets: {error}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={loadData}>
-          <Text style={styles.retryButtonText}>Reintentar</Text>
-        </TouchableOpacity>
-      </View>
+      <SafeAreaView style={[styles.container, { paddingTop: insets.top, backgroundColor: theme.background }]}>
+        <View style={styles.errorContainer}>
+          <Ionicons name="cloud-offline" size={50} color={theme.error} />
+          <ThemedText type="subtitle" style={styles.errorTextCentered}>Error al cargar los tickets: {error}</ThemedText>
+          <TouchableOpacity 
+            style={[styles.retryButton, { backgroundColor: theme.buttonPrimary }]} 
+            onPress={loadData}
+          >
+            <ThemedText type="button" style={styles.buttonText}>Reintentar</ThemedText>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
     );
   }
 
   // Filtrar tickets por año y término de búsqueda
   const filteredTickets = tickets.filter(ticket => {
-    // Filtrar por año de creación del ticket
-    const matchesYear = selectedYear === 'Todas las fechas'
-      ? true
-      : (ticket.fecha_creacion && new Date(ticket.fecha_creacion).getFullYear().toString() === selectedYear);
-
-    // Filtrar por término de búsqueda (nombre de ticket o nombre de feria)
-    const searchTerm = searchQuery.toLowerCase();
-    const matchesSearch = searchTerm === ''
-      || (ticket.nombre && ticket.nombre.toLowerCase().includes(searchTerm))
-      || (ferias.find(f => f.idFeria === ticket.idFeria)?.nombre && ferias.find(f => f.idFeria === ticket.idFeria)!.nombre.toLowerCase().includes(searchTerm));
-
-    return matchesYear && matchesSearch;
+    const feria = ferias.find(f => f.idFeria === ticket.idFeria);
+    const matchesSearch = searchQuery.toLowerCase() === '' || 
+      ticket.nombre.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (feria?.nombre.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
+    const matchesYear = selectedYear === 'Todas las fechas' || 
+      (ticket.fecha_creacion && new Date(ticket.fecha_creacion).getFullYear().toString() === selectedYear);
+    return matchesSearch && matchesYear;
   });
 
   return (
-    <View style={styles.container}>
-      <NavigationHeader 
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+      <NavigationHeader
+        onYearChange={handleYearChange}
         availableYears={availableYears}
         selectedYear={selectedYear}
-        onYearChange={handleYearChange}
       />
 
-      {/* Contenedor para el buscador y el botón de crear ticket */}
-      <View style={styles.searchAndCreateContainer}>
-        {/* Buscador */}
-        <TextInput
-          style={[styles.searchInput, isMobile && styles.searchInputMobile]}
-          placeholder="Buscar ticket o feria..."
-          value={searchQuery}
-          onChangeText={handleSearch}
-        />
+      <View style={styles.content}>
+        <View style={styles.searchContainer}>
+          <TextInput
+            style={[styles.searchInput, { 
+              backgroundColor: theme.inputBackground,
+              borderColor: theme.border,
+              color: theme.text
+            }]}
+            placeholder="Buscar tickets..."
+            placeholderTextColor={theme.placeholder}
+            value={searchQuery}
+            onChangeText={handleSearch}
+          />
+          {!isMobile && (
+            <TouchableOpacity
+              style={[styles.createButton, { backgroundColor: theme.buttonPrimary }]}
+              onPress={() => {
+                setSelectedTicket(null);
+                setCreating(true);
+                setEditModalVisible(true);
+              }}
+            >
+              <Ionicons name="add" size={20} color="white" />
+              <ThemedText type="button" style={styles.buttonText}>Crear Ticket</ThemedText>
+            </TouchableOpacity>
+          )}
+        </View>
 
-        {/* Botón superior para escritorio */}
-        {!isMobile && (
-          <TouchableOpacity
-            style={styles.createButtonDesktop}
-            onPress={() => {
-              setSelectedTicket({
-                idTicket: 0,
-                idFeria: null,
-                nombre: '',
-                tipo: '',
-                cantidad_inicial: 0,
-                usos: 0,
-                estado: 'ACTIVO',
-              });
-              setCreating(true);
-              setEditModalVisible(true);
-            }}
-          >
-            <Ionicons name="add-circle" size={24} color="#fff" />
-            <Text style={styles.createButtonTextDesktop}>Crear Ticket</Text>
-          </TouchableOpacity>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={theme.buttonPrimary} />
+          </View>
+        ) : error ? (
+          <View style={styles.errorContainer}>
+            <ThemedText type="subtitle" style={styles.errorText}>{error}</ThemedText>
+            <TouchableOpacity
+              style={[styles.retryButton, { backgroundColor: theme.buttonPrimary }]}
+              onPress={loadData}
+            >
+              <ThemedText type="button" style={styles.buttonText}>Reintentar</ThemedText>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <>
+            <FlatList
+              data={filteredTickets}
+              renderItem={renderTicket}
+              keyExtractor={item => item.idTicket.toString()}
+              contentContainerStyle={styles.listContainer}
+            />
+
+            {isMobile && (
+              <TouchableOpacity
+                style={[styles.fab, { backgroundColor: theme.buttonPrimary }]}
+                onPress={() => {
+                  setSelectedTicket(null);
+                  setCreating(true);
+                  setEditModalVisible(true);
+                }}
+              >
+                <Ionicons name="add" size={24} color="white" />
+              </TouchableOpacity>
+            )}
+          </>
         )}
       </View>
 
-      {error ? (
-        <View style={styles.errorContainer}>
-          <Ionicons name="cloud-offline" size={50} color="#FF3B30" />
-          <Text style={styles.errorTextCentered}>Error al cargar los tickets: {error}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={loadData}>
-            <Text style={styles.retryButtonText}>Reintentar</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <FlatList
-          data={filteredTickets}
-          renderItem={renderTicket}
-          keyExtractor={item => item.idTicket.toString()}
-          style={styles.list}
-        />
-      )}
-      {/* FAB para móvil */}
-      {isMobile && (
-        <TouchableOpacity
-          style={styles.fab}
-          onPress={() => {
-            setSelectedTicket({
-              idTicket: 0,
-              idFeria: null,
-              nombre: '',
-              tipo: '',
-              cantidad_inicial: 0,
-              usos: 0,
-              estado: 'ACTIVO',
-            });
-            setCreating(true);
-            setEditModalVisible(true);
-          }}
-        >
-          <Ionicons name="add" size={32} color="#fff" />
-        </TouchableOpacity>
-      )}
-      {selectedTicket && (
-        <>
-          <TicketEditModal
-            isVisible={editModalVisible}
-            onClose={() => {
-              setEditModalVisible(false);
-              setCreating(false);
-              setSelectedTicket(null);
-              setEditModalError(null); // Limpiar error al cerrar
-            }}
-            onSave={handleModalSave} // Usamos nuestro nuevo manejador
-            ticket={selectedTicket}
-            ferias={ferias}
-            isCreating={creating}
-            isLoading={editModalLoading} // Pasamos estado de carga al modal
-            error={editModalError} // Pasamos mensaje de error al modal
-          />
-          <QRGenerator
-            isVisible={qrModalVisible}
-            onClose={() => setQrModalVisible(false)}
-            ticketId={selectedTicket.idTicket}
-          />
-        </>
-      )}
-    </View>
+      <TicketEditModal
+        isVisible={editModalVisible}
+        onClose={() => {
+          setEditModalVisible(false);
+          setSelectedTicket(null);
+          setCreating(false);
+        }}
+        onSave={handleModalSave}
+        ticket={selectedTicket || undefined}
+        ferias={ferias}
+        isCreating={creating}
+        isLoading={editModalLoading}
+        error={editModalError}
+      />
+
+      <QRGenerator
+        isVisible={qrModalVisible}
+        onClose={() => setQrModalVisible(false)}
+        ticketId={selectedTicket?.idTicket || 0}
+        nombre={selectedTicket?.nombre || ''}
+        tipo={selectedTicket?.tipo || ''}
+        cantidadInicial={selectedTicket?.cantidad_inicial || 0}
+      />
+    </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
-  list: { flex: 1 },
-  ticketItem: { backgroundColor: 'white', padding: 15, marginVertical: 5, marginHorizontal: 10, borderRadius: 5, elevation: 2 },
-  ticketTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 5 },
-  ticketActions: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 10, gap: 10 },
-  ticketActionsMobile: {
-    justifyContent: 'flex-start',
-  },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  createButtonDesktop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-end',
-    backgroundColor: '#007AFF',
-    paddingVertical: 10,
-    paddingHorizontal: 18,
-    borderRadius: 8,
-    margin: 16,
-    marginBottom: 0,
-    elevation: 2,
-  },
-  createButtonTextDesktop: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 16,
-    marginLeft: 8,
-  },
-  fab: {
-    position: 'absolute',
-    right: 24,
-    bottom: 32,
-    backgroundColor: '#007AFF',
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-  },
-  searchAndCreateContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    marginBottom: 10,
-    marginTop: 5,
-  },
-  searchInput: {
-    height: 40,
-    borderColor: '#ddd',
-    borderWidth: 1,
-    borderRadius: 25,
-    paddingHorizontal: 15,
-    flex: 1,
-    marginRight: 10,
-    backgroundColor: '#fff',
-  },
-  searchInputMobile: {
-    flex: 1,
-    marginRight: 0,
-    marginBottom: 10,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  errorTextCentered: {
-    color: '#FF3B30',
-    fontSize: 16,
-    textAlign: 'center',
-    marginTop: 10,
-    marginBottom: 20,
-  },
-  retryButton: {
-    backgroundColor: '#007AFF',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-}); 
