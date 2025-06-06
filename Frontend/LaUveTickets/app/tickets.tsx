@@ -254,7 +254,7 @@ export default function TicketsScreen() {
         throw new Error(errorMessage);
       }
     } catch (e) {
-      console.error('Error al cargar los datos:', e);
+      // console.error('Error al cargar los datos:', e);
       const errorMessage = (e as Error).message || 'No se pudieron cargar los datos';
       setError(errorMessage);
       Alert.alert('Error de Carga', errorMessage);
@@ -490,7 +490,7 @@ export default function TicketsScreen() {
   });
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+    <SafeAreaView style={[styles.container, { paddingTop: insets.top, backgroundColor: theme.background }]}>
       <NavigationHeader
         onYearChange={handleYearChange}
         availableYears={availableYears}

@@ -9,7 +9,7 @@ export const Colors = {
     primary: '#007AFF',
     secondary: '#687076',
     background: '#ffffff',
-    card: '#ffffff',
+    card: '#f9f9f9',
     text: '#11181C',
     
     // Elementos de UI

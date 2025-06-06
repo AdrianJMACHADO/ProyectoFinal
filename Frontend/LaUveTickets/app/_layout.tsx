@@ -1,5 +1,6 @@
 import { Redirect, Stack, usePathname } from 'expo-router';
 import React from 'react';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 
 function RootLayoutNav() {
@@ -45,7 +46,9 @@ function RootLayoutNav() {
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <RootLayoutNav />
+      <SafeAreaProvider>
+        <RootLayoutNav />
+      </SafeAreaProvider>
     </AuthProvider>
   );
 }

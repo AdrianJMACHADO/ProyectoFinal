@@ -16,6 +16,7 @@ export default function TicketDetailScreen() {
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
+  const [duplicating, setDuplicating] = useState(false);
   const router = useRouter();
   const theme = useTheme();
 
@@ -81,9 +82,52 @@ export default function TicketDetailScreen() {
     }
   };
 
+  // Función para duplicar ticket
+  const handleDuplicateTicket = async () => {
+    if (!ticket) return;
+
+    setDuplicating(true);
+    try {
+      const ticketToDuplicate = {
+        idFeria: ticket.idFeria, // Mantener idFeria
+        nombre: ticket.nombre, // Mantener nombre
+        tipo: ticket.tipo, // Mantener tipo
+        cantidad_inicial: ticket.cantidad_inicial, // Mantener cantidad_inicial
+        usos: 0, // Resetear usos a 0
+        estado: 'ACTIVO', // Poner estado a ACTIVO
+        // idTicket y fecha_creacion no se envían, la API los generará
+      };
+
+      const res = await fetch('http://va-server.duckdns.org:3000/api/ticket', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(ticketToDuplicate),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.ok) {
+        console.error('API Error (Duplicating):', data);
+        throw new Error(data.mensaje || `Error HTTP ${res.status} al duplicar el ticket`);
+      }
+
+      Alert.alert('Éxito', 'Ticket duplicado correctamente');
+      // Opcional: redirigir al nuevo ticket o refrescar la lista de tickets principal
+      // router.push(`/tickets/${data.datos.idTicket}`); // Redirigir al nuevo ticket duplicado
+
+    } catch (error) {
+      console.error('Error duplicating ticket:', error);
+      Alert.alert('Error', (error as Error).message || 'No se pudo duplicar el ticket');
+    } finally {
+      setDuplicating(false);
+    }
+  };
+
   if (loading) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+      <SafeAreaView style={[styles.container, { paddingTop: insets.top, backgroundColor: theme.background }]}>
         <View style={[styles.container, { backgroundColor: theme.background }]}>
           <View style={styles.center}>
             <ActivityIndicator size="large" color={theme.buttonPrimary} />
@@ -95,7 +139,7 @@ export default function TicketDetailScreen() {
 
   if (!ticket) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+      <SafeAreaView style={[styles.container, { paddingTop: insets.top, backgroundColor: theme.background }]}>
         <View style={[styles.container, { backgroundColor: theme.background }]}>
           <View style={styles.center}>
             <ThemedText>Ticket no encontrado</ThemedText>
@@ -109,7 +153,7 @@ export default function TicketDetailScreen() {
   const canIncrement = isActive && (ticket.usos || 0) < ticket.cantidad_inicial;
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+    <SafeAreaView style={[styles.container, { paddingTop: insets.top, backgroundColor: theme.background }]}>
       <View style={[styles.container, { backgroundColor: theme.background }]}>
         <NavigationHeader />
         <ThemedView
@@ -125,16 +169,35 @@ export default function TicketDetailScreen() {
         >
           <View style={styles.header}>
             <ThemedText type="title" style={styles.title}>{ticket.nombre}</ThemedText>
-            <TouchableOpacity
-              style={[
-                styles.estadoButton,
-                { backgroundColor: isActive ? theme.success : theme.error }
-              ]}
-            >
-              <ThemedText type="button" style={styles.estadoText}>
-                {ticket.estado}
-              </ThemedText>
-            </TouchableOpacity>
+            <View style={styles.statusAndDuplicateContainer}>
+              <TouchableOpacity
+                style={[
+                  styles.estadoButton,
+                  { backgroundColor: isActive ? theme.success : theme.error }
+                ]}
+              >
+                <ThemedText type="button" style={styles.estadoText}>
+                  {ticket.estado}
+                </ThemedText>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.duplicateButton,
+                  { backgroundColor: duplicating ? theme.border : theme.buttonPrimary, opacity: duplicating ? 0.7 : 1 }
+                ]}
+                onPress={handleDuplicateTicket}
+                disabled={duplicating}
+              >
+                {duplicating ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <>
+                    <Ionicons name="copy" size={20} color="white" />
+                    <ThemedText type="button" style={styles.duplicateButtonText}>Duplicar</ThemedText>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
 
           <View style={styles.infoSection}>
@@ -272,5 +335,21 @@ const styles = StyleSheet.create({
   progressBar: {
     height: '100%',
     borderRadius: 2,
+  },
+  statusAndDuplicateContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  duplicateButton: {
+    padding: 12,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  duplicateButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 }); 

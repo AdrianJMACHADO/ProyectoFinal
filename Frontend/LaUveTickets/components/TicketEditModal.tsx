@@ -3,7 +3,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Keyboard,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -14,6 +16,9 @@ import {
   useColorScheme
 } from 'react-native';
 import { Feria, Ticket } from '../app/tickets';
+
+// Caracteres especiales a filtrar de los inputs (para seguridad)
+const inputFilterRegex = /[;"'=\\<>]/g;
 
 interface TicketEditModalProps {
   isVisible: boolean;
@@ -82,6 +87,10 @@ export const TicketEditModal: React.FC<TicketEditModalProps> = ({
   const [currentDropdown, setCurrentDropdown] = useState<'feria' | 'estado' | null>(null);
   const dropdownRef = useRef<View>(null);
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
+  const nombreInputRef = useRef<TextInput>(null);
+  const tipoInputRef = useRef<TextInput>(null);
+  const cantidadInputRef = useRef<TextInput>(null);
+  const usosInputRef = useRef<TextInput>(null);
 
   const [form, setForm] = useState<Partial<Ticket>>({
     idTicket: ticket?.idTicket,
@@ -129,14 +138,19 @@ export const TicketEditModal: React.FC<TicketEditModalProps> = ({
   }, [isVisible]);
 
   const validate = () => {
-    const errors: { nombre?: string; tipo?: string; cantidad_inicial?: string; idFeria?: string } = {};
+    const errors: { nombre?: string; tipo?: string; cantidad_inicial?: string; idFeria?: string; usos?: string } = {};
     if (!form.nombre || !form.nombre.trim()) errors.nombre = 'El nombre es obligatorio';
     if (!form.tipo || !form.tipo.trim()) errors.tipo = 'El tipo es obligatorio';
-    if (isCreating && (form.cantidad_inicial === undefined || form.cantidad_inicial === null || form.cantidad_inicial < 0)) 
+    if (isCreating && (form.cantidad_inicial === undefined || form.cantidad_inicial === null || form.cantidad_inicial < 0))
       errors.cantidad_inicial = 'La cantidad inicial debe ser un número positivo al crear';
 
     if (isCreating && (form.idFeria === undefined || form.idFeria === null)) {
       errors.idFeria = 'Debe seleccionar una feria';
+    }
+
+    // Validación para usos en modo edición
+    if (!isCreating && form.usos !== undefined && form.cantidad_inicial !== undefined && form.usos > form.cantidad_inicial) {
+        errors.usos = 'Los usos no pueden ser mayores que la cantidad inicial';
     }
 
     setFormErrors(errors);
@@ -145,7 +159,28 @@ export const TicketEditModal: React.FC<TicketEditModalProps> = ({
 
   const handleSave = async () => {
     if (validate()) {
-      await onSave(form);
+      // Lógica para autocompletar el tipo al crear si se introduce un número
+      let tipoToSave = form.tipo;
+      if (isCreating && tipoToSave) {
+          const tipoNumber = parseInt(tipoToSave);
+          if (!isNaN(tipoNumber)) {
+              switch (tipoNumber) {
+                  case 0:
+                      tipoToSave = "Invitación";
+                      break;
+                  case 1:
+                      tipoToSave = "2x1";
+                      break;
+                  case 3:
+                      tipoToSave = "50%dto";
+                      break;
+                  // Si es otro número, se deja el número ingresado o se valida si es necesario
+                  // Por ahora, solo reemplazamos 0, 1, 3.
+              }
+          }
+      }
+
+      await onSave({ ...form, tipo: tipoToSave });
     }
   };
 
@@ -356,142 +391,177 @@ export const TicketEditModal: React.FC<TicketEditModalProps> = ({
       transparent={true}
       onRequestClose={onClose}
     >
-      <TouchableWithoutFeedback onPress={() => setDropdownVisible(false)}>
-        <View style={styles.modalOverlay}>
-          <TouchableWithoutFeedback>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>{isCreating ? 'Crear Ticket' : 'Editar Ticket'}</Text>
+      <TouchableWithoutFeedback onPress={() => {
+        setDropdownVisible(false);
+        if (Platform.OS === 'web') {
+          onClose();
+        }
+      }}>
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        >
+          {dropdownVisible && (
+            <TouchableWithoutFeedback onPress={() => setDropdownVisible(false)}>
+              <View style={StyleSheet.absoluteFillObject} />
+            </TouchableWithoutFeedback>
+          )}
 
-              <ScrollView contentContainerStyle={styles.scrollContainer}>
-                {isCreating && (
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>{isCreating ? 'Crear Ticket' : 'Editar Ticket'}</Text>
+
+            <ScrollView contentContainerStyle={styles.scrollContainer}>
+              {isCreating && (
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Feria</Text>
+                  <TouchableOpacity
+                    style={[styles.pickerWrapper, formErrors.idFeria && styles.inputError]}
+                    onPress={() => toggleDropdown('feria')}
+                    ref={currentDropdown === 'feria' ? dropdownRef : null}
+                  >
+                    <Text style={[
+                      styles.pickerText,
+                      !form.idFeria && styles.pickerPlaceholder
+                    ]}>
+                      {selectedFeriaName}
+                    </Text>
+                    <Ionicons
+                      name={dropdownVisible && currentDropdown === 'feria' ? "chevron-up" : "chevron-down"}
+                      size={20}
+                      color={theme.text}
+                      style={styles.icon}
+                    />
+                  </TouchableOpacity>
+                  {formErrors.idFeria && <Text style={styles.errorText}>{formErrors.idFeria}</Text>}
+                </View>
+              )}
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Nombre</Text>
+                <TextInput
+                  ref={nombreInputRef}
+                  style={[styles.input, formErrors.nombre && styles.inputError]}
+                  placeholder="Nombre del Ticket"
+                  placeholderTextColor={theme.placeholder}
+                  value={form.nombre}
+                  onChangeText={(text) => setForm(f => ({ ...f, nombre: text.replace(inputFilterRegex, '') }))}
+                  returnKeyType="next"
+                  onSubmitEditing={() => tipoInputRef.current?.focus()}
+                />
+                {formErrors.nombre && <Text style={styles.errorText}>{formErrors.nombre}</Text>}
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Tipo</Text>
+                <TextInput
+                  ref={tipoInputRef}
+                  style={[styles.input, formErrors.tipo && styles.inputError]}
+                  placeholder="Tipo (0: Invitación, 1: 2x1, 3: 50%dto)"
+                  placeholderTextColor={theme.placeholder}
+                  value={form.tipo}
+                  onChangeText={(text) => setForm(f => ({ ...f, tipo: text.replace(inputFilterRegex, '') }))}
+                  returnKeyType={isCreating ? "next" : "done"}
+                  onSubmitEditing={() => {
+                    if (isCreating) {
+                      cantidadInputRef.current?.focus();
+                    } else {
+                      Keyboard.dismiss();
+                    }
+                  }}
+                />
+                {formErrors.tipo && <Text style={styles.errorText}>{formErrors.tipo}</Text>}
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Cantidad Inicial</Text>
+                <TextInput
+                  ref={cantidadInputRef}
+                  style={[styles.input, !isCreating && styles.disabledInput, formErrors.cantidad_inicial && styles.inputError]}
+                  placeholder="Cantidad inicial de usos"
+                  placeholderTextColor={theme.placeholder}
+                  keyboardType="numeric"
+                  value={form.cantidad_inicial != null ? form.cantidad_inicial.toString() : ''}
+                  onChangeText={(text) => setForm(f => ({ ...f, cantidad_inicial: parseInt(text) || 0 }))}
+                  editable={isCreating}
+                  returnKeyType={isCreating ? "done" : "next"}
+                  onSubmitEditing={() => {
+                    if (isCreating) {
+                      Keyboard.dismiss();
+                    } else {
+                      usosInputRef.current?.focus();
+                    }
+                  }}
+                />
+                {formErrors.cantidad_inicial && <Text style={styles.errorText}>{formErrors.cantidad_inicial}</Text>}
+              </View>
+
+              {!isCreating && (
+                <>
+                  <View style={styles.sectionDivider} />
+
                   <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Feria</Text>
-                    <TouchableOpacity 
-                      style={[styles.pickerWrapper, formErrors.idFeria && styles.inputError]}
-                      onPress={() => toggleDropdown('feria')}
-                      ref={currentDropdown === 'feria' ? dropdownRef : null}
+                    <Text style={styles.label}>Usos</Text>
+                    <TextInput
+                      ref={usosInputRef}
+                      style={[styles.input, formErrors.usos && styles.inputError]}
+                      placeholder="Usos actuales"
+                      placeholderTextColor={theme.placeholder}
+                      keyboardType="numeric"
+                      value={form.usos != null ? form.usos.toString() : ''}
+                      onChangeText={(text) => setForm(f => ({ ...f, usos: parseInt(text) || 0 }))}
+                      returnKeyType="done"
+                      onSubmitEditing={Keyboard.dismiss}
+                    />
+                    {formErrors.usos && <Text style={styles.errorText}>{formErrors.usos}</Text>}
+                  </View>
+
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Estado</Text>
+                    <TouchableOpacity
+                      style={[styles.pickerWrapper]}
+                      onPress={() => toggleDropdown('estado')}
+                      ref={currentDropdown === 'estado' ? dropdownRef : null}
                     >
-                      <Text style={[
-                        styles.pickerText, 
-                        !form.idFeria && styles.pickerPlaceholder
-                      ]}>
-                        {selectedFeriaName}
-                      </Text>
-                      <Ionicons 
-                        name={dropdownVisible && currentDropdown === 'feria' ? "chevron-up" : "chevron-down"} 
-                        size={20} 
-                        color={theme.text} 
+                      <Text style={styles.pickerText}>{form.estado || 'ACTIVO'}</Text>
+                      <Ionicons
+                        name={dropdownVisible && currentDropdown === 'estado' ? "chevron-up" : "chevron-down"}
+                        size={20}
+                        color={theme.text}
                         style={styles.icon}
                       />
                     </TouchableOpacity>
-                    {formErrors.idFeria && <Text style={styles.errorText}>{formErrors.idFeria}</Text>}
                   </View>
-                )}
+                </>
+              )}
 
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Nombre</Text>
-                  <TextInput
-                    style={[styles.input, formErrors.nombre && styles.inputError]}
-                    placeholder="Nombre del Ticket"
-                    placeholderTextColor={theme.placeholder}
-                    value={form.nombre}
-                    onChangeText={(text) => setForm(f => ({ ...f, nombre: text }))}
-                  />
-                  {formErrors.nombre && <Text style={styles.errorText}>{formErrors.nombre}</Text>}
-                </View>
+              {error && <Text style={styles.saveErrorText}>{error}</Text>}
+            </ScrollView>
 
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Tipo</Text>
-                  <TextInput
-                    style={[styles.input, formErrors.tipo && styles.inputError]}
-                    placeholder="Tipo (0: Invitación, 1: 2x1, 3: 50%dto)"
-                    placeholderTextColor={theme.placeholder}
-                    value={form.tipo}
-                    onChangeText={(text) => setForm(f => ({ ...f, tipo: text }))}
-                  />
-                  {formErrors.tipo && <Text style={styles.errorText}>{formErrors.tipo}</Text>}
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Cantidad Inicial</Text>
-                  <TextInput
-                    style={[styles.input, !isCreating && styles.disabledInput, formErrors.cantidad_inicial && styles.inputError]}
-                    placeholder="Cantidad inicial de usos"
-                    placeholderTextColor={theme.placeholder}
-                    keyboardType="numeric"
-                    value={form.cantidad_inicial != null ? form.cantidad_inicial.toString() : ''}
-                    onChangeText={(text) => setForm(f => ({ ...f, cantidad_inicial: parseInt(text) || 0 }))}
-                    editable={isCreating}
-                  />
-                  {formErrors.cantidad_inicial && <Text style={styles.errorText}>{formErrors.cantidad_inicial}</Text>}
-                </View>
-
-                {!isCreating && (
-                  <>
-                    <View style={styles.sectionDivider} />
-                    
-                    <View style={styles.inputGroup}>
-                      <Text style={styles.label}>Usos</Text>
-                      <TextInput
-                        style={styles.input}
-                        placeholder="Usos actuales"
-                        placeholderTextColor={theme.placeholder}
-                        keyboardType="numeric"
-                        value={form.usos != null ? form.usos.toString() : ''}
-                        onChangeText={(text) => setForm(f => ({ ...f, usos: parseInt(text) || 0 }))}
-                      />
-                    </View>
-                    
-                    <View style={styles.inputGroup}>
-                      <Text style={styles.label}>Estado</Text>
-                      <TouchableOpacity 
-                        style={[styles.pickerWrapper]}
-                        onPress={() => toggleDropdown('estado')}
-                        ref={currentDropdown === 'estado' ? dropdownRef : null}
-                      >
-                        <Text style={styles.pickerText}>{form.estado || 'ACTIVO'}</Text>
-                        <Ionicons 
-                          name={dropdownVisible && currentDropdown === 'estado' ? "chevron-up" : "chevron-down"} 
-                          size={20} 
-                          color={theme.text} 
-                          style={styles.icon}
-                        />
-                      </TouchableOpacity>
-                    </View>
-                  </>
-                )}
-
-                {error && <Text style={styles.saveErrorText}>{error}</Text>}
-
-                {/* <View style={styles.sectionDivider} /> */} 
-              </ScrollView>
-
-              <View style={styles.modalButtons}>
-                {isLoading ? (
-                  <ActivityIndicator size="large" color={theme.buttonPrimary} />
-                ) : (
-                  <>
-                    <TouchableOpacity 
-                      style={[styles.button, styles.saveButton]} 
-                      onPress={handleSave} 
-                      disabled={isLoading}
-                    >
-                      <Text style={styles.buttonText}>{isCreating ? 'Crear' : 'Guardar Cambios'}</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity 
-                      style={[styles.button, styles.cancelButton]} 
-                      onPress={onClose} 
-                      disabled={isLoading}
-                    >
-                      <Text style={styles.buttonText}>Cancelar</Text>
-                    </TouchableOpacity>
-                  </>
-                )}
-              </View>
+            <View style={styles.modalButtons}>
+              {isLoading ? (
+                <ActivityIndicator size="large" color={theme.buttonPrimary} />
+              ) : (
+                <>
+                  <TouchableOpacity
+                    style={[styles.button, styles.saveButton]}
+                    onPress={handleSave}
+                    disabled={isLoading}
+                  >
+                    <Text style={styles.buttonText}>{isCreating ? 'Crear' : 'Guardar Cambios'}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.button, styles.cancelButton]}
+                    onPress={onClose}
+                    disabled={isLoading}
+                  >
+                    <Text style={styles.buttonText}>Cancelar</Text>
+                  </TouchableOpacity>
+                </>
+              )}
             </View>
-          </TouchableWithoutFeedback>
+          </View>
 
-          {/* Dropdown para selección */}
           {dropdownVisible && (
             <View style={[
               styles.dropdownContainer,
@@ -504,7 +574,7 @@ export const TicketEditModal: React.FC<TicketEditModalProps> = ({
               <ScrollView>
                 {currentDropdown === 'feria' && (
                   <>
-                    <TouchableOpacity 
+                    <TouchableOpacity
                       style={[
                         styles.dropdownItem,
                         !form.idFeria && styles.dropdownItemSelected
@@ -518,10 +588,10 @@ export const TicketEditModal: React.FC<TicketEditModalProps> = ({
                         Selecciona una Feria
                       </Text>
                     </TouchableOpacity>
-                    
+
                     {ferias.map(feria => (
-                      <TouchableOpacity 
-                        key={feria.idFeria} 
+                      <TouchableOpacity
+                        key={feria.idFeria}
                         style={[
                           styles.dropdownItem,
                           form.idFeria === feria.idFeria && styles.dropdownItemSelected
@@ -538,10 +608,10 @@ export const TicketEditModal: React.FC<TicketEditModalProps> = ({
                     ))}
                   </>
                 )}
-                
+
                 {currentDropdown === 'estado' && (
                   <>
-                    <TouchableOpacity 
+                    <TouchableOpacity
                       style={[
                         styles.dropdownItem,
                         form.estado === 'ACTIVO' && styles.dropdownItemSelected
@@ -555,8 +625,8 @@ export const TicketEditModal: React.FC<TicketEditModalProps> = ({
                         ACTIVO
                       </Text>
                     </TouchableOpacity>
-                    
-                    <TouchableOpacity 
+
+                    <TouchableOpacity
                       style={[
                         styles.dropdownItem,
                         form.estado === 'INACTIVO' && styles.dropdownItemSelected
@@ -575,7 +645,7 @@ export const TicketEditModal: React.FC<TicketEditModalProps> = ({
               </ScrollView>
             </View>
           )}
-        </View>
+        </KeyboardAvoidingView>
       </TouchableWithoutFeedback>
     </Modal>
   );

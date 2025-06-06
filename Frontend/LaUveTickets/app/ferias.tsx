@@ -6,10 +6,13 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, FlatList, Modal, Platform, SafeAreaView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, FlatList, Modal, Platform, SafeAreaView, StyleSheet, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NavigationHeader } from '../components/NavigationHeader';
 import { useAuth } from '../contexts/AuthContext';
+
+// Caracteres especiales a filtrar de los inputs (para seguridad)
+const inputFilterRegex = /[;"'=\\<>]/g;
 
 // Tipos
 interface Feria {
@@ -68,7 +71,7 @@ const FeriasScreen: React.FC = () => {
         throw new Error(errorMessage);
       }
     } catch (e) {
-      console.error('Error al cargar los datos:', e);
+      // console.error('Error al cargar los datos:', e);
       const errorMessage = (e as Error).message || 'No se pudieron cargar las ferias.';
       setError(errorMessage);
       Alert.alert('Error de Carga', errorMessage);
@@ -380,7 +383,7 @@ const FeriasScreen: React.FC = () => {
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+    <SafeAreaView style={[styles.container, { paddingTop: insets.top, backgroundColor: theme.background }]}>
       <NavigationHeader 
         availableYears={availableYears}
         selectedYear={selectedYear}
@@ -447,107 +450,114 @@ const FeriasScreen: React.FC = () => {
         transparent
         onRequestClose={() => { setModalVisible(false); setModalError(null); }}
       >
-        <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
-          <ThemedView type="card" style={styles.modalContent}>
-            <ThemedText type="title" style={styles.modalTitle}>
-              {editMode ? 'Editar Feria' : 'Nueva Feria'}
-            </ThemedText>
-
-            <TextInput
-              style={[
-                styles.input,
-                { 
-                  backgroundColor: theme.inputBackground,
-                  borderColor: formErrors.nombre ? theme.error : theme.border,
-                  color: theme.text
-                }
-              ]}
-              placeholder="Nombre"
-              placeholderTextColor={theme.placeholder}
-              value={form.nombre}
-              onChangeText={(text) => setForm((f) => ({ ...f, nombre: text }))}
-            />
-            {formErrors.nombre && (
-              <ThemedText style={[styles.errorText, { color: theme.error }]}>
-                {formErrors.nombre}
+        <TouchableWithoutFeedback onPress={() => {
+          if (Platform.OS === 'web') {
+            setModalVisible(false);
+            setModalError(null);
+          }
+        }}>
+          <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
+            <ThemedView type="card" style={styles.modalContent}>
+              <ThemedText type="title" style={styles.modalTitle}>
+                {editMode ? 'Editar Feria' : 'Nueva Feria'}
               </ThemedText>
-            )}
 
-            <View style={styles.inputGroup}>
-              <ThemedText style={styles.label}>Fecha</ThemedText>
-              {Platform.OS === 'web' ? (
-                <input
-                  type="date"
-                  value={form.fecha ? format(new Date(form.fecha), 'yyyy-MM-dd') : ''}
-                  onChange={(e) => {
-                    setForm((f) => ({ ...f, fecha: e.target.value }));
-                  }}
-                  style={{
-                    ...styles.input as any,
-                    paddingVertical: 10,
-                    paddingHorizontal: 10,
-                    height: 44,
-                    color: form.fecha ? theme.text : theme.placeholder,
+              <TextInput
+                style={[
+                  styles.input,
+                  {
                     backgroundColor: theme.inputBackground,
-                    borderColor: formErrors.fecha ? theme.error : theme.border,
-                  }}
-                />
-              ) : (
-                <TouchableOpacity
-                  style={[
-                    styles.input,
-                    {
+                    borderColor: formErrors.nombre ? theme.error : theme.border,
+                    color: theme.text
+                  }
+                ]}
+                placeholder="Nombre"
+                placeholderTextColor={theme.placeholder}
+                value={form.nombre}
+                onChangeText={(text) => setForm((f) => ({ ...f, nombre: text.replace(inputFilterRegex, '') }))}
+              />
+              {formErrors.nombre && (
+                <ThemedText style={[styles.errorText, { color: theme.error }]}>
+                  {formErrors.nombre}
+                </ThemedText>
+              )}
+
+              <View style={styles.inputGroup}>
+                <ThemedText style={styles.label}>Fecha</ThemedText>
+                {Platform.OS === 'web' ? (
+                  <input
+                    type="date"
+                    value={form.fecha ? format(new Date(form.fecha), 'yyyy-MM-dd') : ''}
+                    onChange={(e) => {
+                      setForm((f) => ({ ...f, fecha: e.target.value }));
+                    }}
+                    style={{
+                      ...styles.input as any,
+                      paddingVertical: 10,
+                      paddingHorizontal: 10,
+                      height: 44,
+                      color: form.fecha ? theme.text : theme.placeholder,
                       backgroundColor: theme.inputBackground,
                       borderColor: formErrors.fecha ? theme.error : theme.border,
+                    }}
+                  />
+                ) : (
+                  <TouchableOpacity
+                    style={[
+                      styles.input,
+                      {
+                        backgroundColor: theme.inputBackground,
+                        borderColor: formErrors.fecha ? theme.error : theme.border,
+                      }
+                    ]}
+                    onPress={() => setShowDatePicker(true)}
+                    activeOpacity={0.7}
+                  >
+                    <ThemedText style={form.fecha ? {} : { color: theme.placeholder }}>
+                      {form.fecha ? format(new Date(form.fecha), 'dd/MM/yyyy') : 'Seleccionar fecha'}
+                    </ThemedText>
+                  </TouchableOpacity>
+                )}
+              </View>
+              {formErrors.fecha && (
+                <ThemedText style={[styles.errorText, { color: theme.error }]}>
+                  {formErrors.fecha}
+                </ThemedText>
+              )}
+
+              {modalError && (
+                <ThemedText style={[styles.errorText, { color: theme.error }]}>
+                  {modalError}
+                </ThemedText>
+              )}
+
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={[styles.modalButton, { backgroundColor: theme.buttonPrimary }]}
+                  onPress={async () => {
+                    const success = await saveFeria();
+                    if (success) {
+                      setModalVisible(false);
                     }
-                  ]}
-                  onPress={() => setShowDatePicker(true)}
-                  activeOpacity={0.7}
+                  }}
                 >
-                  <ThemedText style={form.fecha ? {} : { color: theme.placeholder }}>
-                    {form.fecha ? format(new Date(form.fecha), 'dd/MM/yyyy') : 'Seleccionar fecha'}
+                  <ThemedText type="button" style={styles.buttonText}>
+                    {editMode ? 'Guardar' : 'Crear'}
                   </ThemedText>
                 </TouchableOpacity>
-              )}
-            </View>
-            {formErrors.fecha && (
-              <ThemedText style={[styles.errorText, { color: theme.error }]}>
-                {formErrors.fecha}
-              </ThemedText>
-            )}
-
-            {modalError && (
-              <ThemedText style={[styles.errorText, { color: theme.error }]}>
-                {modalError}
-              </ThemedText>
-            )}
-
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, { backgroundColor: theme.buttonPrimary }]}
-                onPress={async () => {
-                  const success = await saveFeria();
-                  if (success) {
+                <TouchableOpacity
+                  style={[styles.modalButton, { backgroundColor: theme.error }]}
+                  onPress={() => {
                     setModalVisible(false);
-                  }
-                }}
-              >
-                <ThemedText type="button" style={styles.buttonText}>
-                  {editMode ? 'Guardar' : 'Crear'}
-                </ThemedText>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, { backgroundColor: theme.error }]}
-                onPress={() => {
-                  setModalVisible(false);
-                  setModalError(null);
-                }}
-              >
-                <ThemedText type="button" style={styles.buttonText}>Cancelar</ThemedText>
-              </TouchableOpacity>
-            </View>
-          </ThemedView>
-        </View>
+                    setModalError(null);
+                  }}
+                >
+                  <ThemedText type="button" style={styles.buttonText}>Cancelar</ThemedText>
+                </TouchableOpacity>
+              </View>
+            </ThemedView>
+          </View>
+        </TouchableWithoutFeedback>
       </Modal>
 
       {Platform.OS !== 'web' && showDatePicker && (

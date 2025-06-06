@@ -3,12 +3,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-    Dimensions,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-    View
+  Dimensions,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 import { ThemedText } from './ThemedText';
@@ -153,7 +153,7 @@ export function NavigationHeader({
     logoutButton: {
       padding: 8,
       borderRadius: 8,
-      backgroundColor: `${theme.error}20`,
+      backgroundColor: theme.inputBackground,
       shadowColor: theme.shadow,
       shadowOffset: { width: 0, height: 3 },
       shadowOpacity: 0.2,

@@ -25,7 +25,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/v.png",
-        "backgroundColor": "#f5f5f5"
+        "backgroundColor": "#007AFF"
       },
       "package": "com.lauve.lauvetickets"
     },

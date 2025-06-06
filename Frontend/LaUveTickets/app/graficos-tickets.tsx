@@ -57,7 +57,7 @@ export default function GraficosTicketsScreen() {
         throw new Error(errorMessage);
       }
     } catch (error) {
-      console.error('Error al cargar los datos:', error);
+      // console.error('Error al cargar los datos:', error);
       const errorMessage = (error as Error).message || 'No se pudieron cargar los datos';
       setError(errorMessage);
       Alert.alert('Error de Carga', errorMessage);
@@ -69,6 +69,198 @@ export default function GraficosTicketsScreen() {
   const handleYearChange = (year: string | null) => {
     setSelectedYear(year);
   };
+
+  // Define styles inside the component to access theme
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+    },
+    scrollView: {
+      flex: 1,
+    },
+    center: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    content: {
+      padding: 16,
+      paddingBottom: 30,
+    },
+    contentLarge: {
+      padding: 24,
+    },
+    title: {
+      fontSize: 22,
+      fontWeight: 'bold',
+      marginBottom: 16,
+      textAlign: 'center',
+    },
+    chartContainer: {
+      borderRadius: 10,
+      padding: 16,
+      marginBottom: 16,
+      elevation: 8,
+      shadowColor: theme.shadow,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.25,
+      shadowRadius: 6,
+    },
+    chartContainerLarge: {
+      padding: 24,
+      marginBottom: 16,
+      elevation: 8,
+      shadowColor: theme.shadow,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.25,
+      shadowRadius: 6,
+    },
+    chartTitle: {
+      fontSize: 16,
+      fontWeight: 'bold',
+      marginBottom: 12,
+      textAlign: 'center',
+    },
+    summaryContainer: {
+      borderRadius: 10,
+      padding: 16,
+      marginBottom: 16,
+      elevation: 8,
+      shadowColor: theme.shadow,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.25,
+      shadowRadius: 6,
+    },
+    summaryContainerLarge: {
+      padding: 24,
+    },
+    summaryItem: {
+      marginBottom: 10,
+      padding: 8,
+      borderRadius: 8,
+    },
+    feriaName: {
+      fontSize: 15,
+      fontWeight: 'bold',
+      marginBottom: 3,
+    },
+    summaryStats: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    statText: {
+      fontSize: 13,
+    },
+    warningText: {
+      fontSize: 12,
+      marginTop: 2,
+      fontWeight: 'bold',
+    },
+    legendRow: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      marginTop: 12,
+      gap: 16,
+    },
+    legendItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginHorizontal: 8,
+    },
+    legendColor: {
+      width: 16,
+      height: 16,
+      borderRadius: 4,
+      marginRight: 6,
+    },
+    legendText: {
+      fontSize: 13,
+    },
+    progressItem: {
+      marginBottom: 16,
+      paddingHorizontal: 4,
+    },
+    progressLabel: {
+      fontSize: 15,
+      fontWeight: 'bold',
+      marginBottom: 8,
+      flexShrink: 1,
+    },
+    progressBarRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      width: '100%',
+    },
+    progressBarContainer: {
+      flex: 1,
+      marginRight: 12,
+    },
+    progressBar: {
+      height: 16,
+      borderRadius: 8,
+      width: '100%',
+    },
+    progressPercent: {
+      fontSize: 14,
+      fontWeight: 'bold',
+      minWidth: 45,
+      textAlign: 'right',
+      flexShrink: 0,
+    },
+    progressItemLarge: {
+      marginBottom: 20,
+      paddingHorizontal: 8,
+    },
+    progressLabelLarge: {
+      fontSize: 16,
+      marginBottom: 10,
+    },
+    progressBarRowLarge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      width: '100%',
+      minHeight: 24,
+    },
+    progressBarContainerLarge: {
+      flex: 1,
+      marginRight: 24,
+      paddingRight: 8,
+    },
+    progressBarLarge: {
+      height: 20,
+      borderRadius: 10,
+      width: '100%',
+    },
+    progressPercentLarge: {
+      fontSize: 16,
+      fontWeight: 'bold',
+      minWidth: 60,
+      textAlign: 'right',
+      flexShrink: 0,
+    },
+    errorContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 20,
+    },
+    errorTextCentered: {
+      fontSize: 16,
+      textAlign: 'center',
+      marginTop: 10,
+      marginBottom: 20,
+    },
+    retryButton: {
+      paddingVertical: 10,
+      paddingHorizontal: 20,
+      borderRadius: 8,
+    },
+    retryButtonText: {
+      fontSize: 16,
+      fontWeight: 'bold',
+    },
+  });
 
   if (loading) {
     return (
@@ -237,178 +429,3 @@ export default function GraficosTicketsScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  content: {
-    padding: 16,
-    paddingBottom: 30,
-  },
-  contentLarge: {
-    padding: 24,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  chartContainer: {
-    borderRadius: 10,
-    padding: 16,
-    marginBottom: 16,
-  },
-  chartContainerLarge: {
-    padding: 24,
-  },
-  chartTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  summaryContainer: {
-    borderRadius: 10,
-    padding: 16,
-    marginBottom: 16,
-  },
-  summaryContainerLarge: {
-    padding: 24,
-  },
-  summaryItem: {
-    marginBottom: 10,
-    padding: 8,
-    borderRadius: 8,
-  },
-  feriaName: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    marginBottom: 3,
-  },
-  summaryStats: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  statText: {
-    fontSize: 13,
-  },
-  warningText: {
-    fontSize: 12,
-    marginTop: 2,
-    fontWeight: 'bold',
-  },
-  legendRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 12,
-    gap: 16,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: 8,
-  },
-  legendColor: {
-    width: 16,
-    height: 16,
-    borderRadius: 4,
-    marginRight: 6,
-  },
-  legendText: {
-    fontSize: 13,
-  },
-  progressItem: {
-    marginBottom: 16,
-    paddingHorizontal: 4,
-  },
-  progressLabel: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    flexShrink: 1,
-  },
-  progressBarRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '100%',
-  },
-  progressBarContainer: {
-    flex: 1,
-    marginRight: 12,
-  },
-  progressBar: {
-    height: 16,
-    borderRadius: 8,
-    width: '100%',
-  },
-  progressPercent: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    minWidth: 45,
-    textAlign: 'right',
-    flexShrink: 0,
-  },
-  progressItemLarge: {
-    marginBottom: 20,
-    paddingHorizontal: 8,
-  },
-  progressLabelLarge: {
-    fontSize: 16,
-    marginBottom: 10,
-  },
-  progressBarRowLarge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '100%',
-    minHeight: 24,
-  },
-  progressBarContainerLarge: {
-    flex: 1,
-    marginRight: 24,
-    paddingRight: 8,
-  },
-  progressBarLarge: {
-    height: 20,
-    borderRadius: 10,
-    width: '100%',
-  },
-  progressPercentLarge: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    minWidth: 60,
-    textAlign: 'right',
-    flexShrink: 0,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  errorTextCentered: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginTop: 10,
-    marginBottom: 20,
-  },
-  retryButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-});

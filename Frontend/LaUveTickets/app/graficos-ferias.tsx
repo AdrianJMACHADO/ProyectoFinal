@@ -51,7 +51,7 @@ export default function GraficosFeriasScreen() {
         throw new Error(errorMessage);
       }
     } catch (error) {
-      console.error('Error al cargar los datos:', error);
+      // console.error('Error al cargar los datos:', error);
       const errorMessage = (error as Error).message || 'No se pudieron cargar los datos';
       setError(errorMessage);
       Alert.alert('Error de Carga', errorMessage);
@@ -63,6 +63,112 @@ export default function GraficosFeriasScreen() {
   const handleYearChange = (year: string | null) => {
     setSelectedYear(year);
   };
+
+  // Define styles inside the component to access theme
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+    },
+    scrollView: {
+      flex: 1,
+    },
+    center: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    content: {
+      padding: 16,
+      paddingBottom: 30,
+    },
+    contentLarge: {
+      padding: 24,
+    },
+    title: {
+      fontSize: 22,
+      fontWeight: 'bold',
+      marginBottom: 16,
+      textAlign: 'center',
+    },
+    chartContainer: {
+      borderRadius: 10,
+      padding: 16,
+      marginBottom: 16,
+      // Add theme-aware shadow styles
+      elevation: 8,
+      shadowColor: theme.shadow,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.25,
+      shadowRadius: 6,
+    },
+    chartContainerLarge: {
+      padding: 24,
+      marginBottom: 16,
+      // Add theme-aware shadow styles
+      elevation: 8,
+      shadowColor: theme.shadow,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.25,
+      shadowRadius: 6,
+    },
+    chartTitle: {
+      fontSize: 16,
+      fontWeight: 'bold',
+      marginBottom: 12,
+      textAlign: 'center',
+    },
+    summaryContainer: {
+      borderRadius: 10,
+      padding: 16,
+      marginBottom: 16,
+      // Add theme-aware shadow styles
+      elevation: 8,
+      shadowColor: theme.shadow,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.25,
+      shadowRadius: 6,
+    },
+    summaryContainerLarge: {
+      padding: 24,
+    },
+    summaryItem: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 10,
+      padding: 10,
+      borderRadius: 8,
+    },
+    mesName: {
+      fontSize: 16,
+      fontWeight: 'bold',
+    },
+    cantidadText: {
+      fontSize: 16,
+      fontWeight: '500',
+    },
+    errorContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 20,
+    },
+    errorTextCentered: {
+      fontSize: 16,
+      textAlign: 'center',
+      marginTop: 10,
+      marginBottom: 20,
+    },
+    retryButton: {
+      paddingVertical: 10,
+      paddingHorizontal: 20,
+      borderRadius: 8,
+    },
+    retryButtonText: {
+      fontSize: 16,
+      fontWeight: 'bold',
+    },
+  });
 
   if (loading) {
     return (
@@ -157,90 +263,4 @@ export default function GraficosFeriasScreen() {
       </ScrollView>
     </SafeAreaView>
   );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  content: {
-    padding: 16,
-    paddingBottom: 30,
-  },
-  contentLarge: {
-    padding: 24,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  chartContainer: {
-    borderRadius: 10,
-    padding: 16,
-    marginBottom: 16,
-  },
-  chartContainerLarge: {
-    padding: 24,
-  },
-  chartTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  summaryContainer: {
-    borderRadius: 10,
-    padding: 16,
-    marginBottom: 16,
-  },
-  summaryContainerLarge: {
-    padding: 24,
-  },
-  summaryItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-    padding: 10,
-    borderRadius: 8,
-  },
-  mesName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  cantidadText: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  errorTextCentered: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginTop: 10,
-    marginBottom: 20,
-  },
-  retryButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-}); 
+} 
