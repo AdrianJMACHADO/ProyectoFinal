@@ -143,6 +143,27 @@ export default function TicketDetailScreen() {
         <View style={[styles.container, { backgroundColor: theme.background }]}>
           <View style={styles.center}>
             <ThemedText>Ticket no encontrado</ThemedText>
+            <TouchableOpacity
+              style={[
+                styles.retryButton,
+                {
+                  backgroundColor: loading ? theme.border : theme.buttonPrimary,
+                  opacity: loading ? 0.7 : 1,
+                  marginTop: 20
+                }
+              ]}
+              onPress={() => {
+                setLoading(true);
+                loadTicket();
+              }}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator size="small" color="white" />
+              ) : (
+                <ThemedText type="button" style={styles.retryButtonText}>Reintentar</ThemedText>
+              )}
+            </TouchableOpacity>
           </View>
         </View>
       </SafeAreaView>
@@ -350,6 +371,18 @@ const styles = StyleSheet.create({
   duplicateButtonText: {
     color: 'white',
     fontSize: 16,
+    fontWeight: 'bold',
+  },
+  retryButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  retryButtonText: {
+    color: 'white',
+    fontSize: 18,
     fontWeight: 'bold',
   },
 }); 
