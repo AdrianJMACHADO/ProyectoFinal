@@ -405,7 +405,7 @@ const FeriasScreen: React.FC = () => {
           />
           {!isMobile && (
             <TouchableOpacity
-              style={[styles.createButton, { backgroundColor: theme.buttonPrimary }]}
+              style={[styles.createButton, { backgroundColor: '#FFC107' }]}
               onPress={openCreateModal}
             >
               <Ionicons name="add" size={20} color="white" />
@@ -435,7 +435,7 @@ const FeriasScreen: React.FC = () => {
 
         {isMobile && (
           <TouchableOpacity
-            style={[styles.fab, { backgroundColor: theme.buttonPrimary }]}
+            style={[styles.fab, { backgroundColor: '#FFC107' }]}
             onPress={openCreateModal}
           >
             <Ionicons name="add" size={24} color="white" />
@@ -451,7 +451,7 @@ const FeriasScreen: React.FC = () => {
         onRequestClose={() => { setModalVisible(false); setModalError(null); }}
       >
         <TouchableWithoutFeedback onPress={() => {
-          if (Platform.OS === 'web') {
+          if (Platform.OS !== 'web') {
             setModalVisible(false);
             setModalError(null);
           }
@@ -533,7 +533,7 @@ const FeriasScreen: React.FC = () => {
 
               <View style={styles.modalButtons}>
                 <TouchableOpacity
-                  style={[styles.modalButton, { backgroundColor: theme.buttonPrimary }]}
+                  style={[styles.modalButton, { backgroundColor: '#4CAF50' }]}
                   onPress={async () => {
                     const success = await saveFeria();
                     if (success) {

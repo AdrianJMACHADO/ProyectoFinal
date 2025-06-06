@@ -2,7 +2,7 @@ import * as FileSystem from 'expo-file-system';
 import * as Print from 'expo-print';
 import { shareAsync } from 'expo-sharing';
 import React, { useRef, useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Modal from 'react-native-modal';
 import QRCode from 'react-native-qrcode-svg';
 
@@ -75,8 +75,8 @@ export const QRGenerator: React.FC<QRGeneratorProps> = ({ isVisible, onClose, ti
               .qrContainer {
                 margin-top: 30px;
                 display: flex;
-                justifyContent: center;
-                alignItems: center;
+                justify-content: center;
+                align-items: center;
               }
               img {
                 width: 250px;
@@ -100,7 +100,24 @@ export const QRGenerator: React.FC<QRGeneratorProps> = ({ isVisible, onClose, ti
       `;
 
       const { uri } = await Print.printToFileAsync({ html: htmlContent });
-      await shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
+
+      if (Platform.OS === 'web') {
+        // Intento de descarga directa en web
+        const response = await fetch(uri);
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `ticket_${ticketId}_${nombre.replace(/\s+/g, '_')}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      } else {
+        // En móvil, usar shareAsync
+        await shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
+      }
+
     } catch (error) {
       console.error('Error al generar o compartir el PDF:', error);
       Alert.alert('Error', 'No se pudo generar o compartir el PDF');
@@ -134,7 +151,7 @@ export const QRGenerator: React.FC<QRGeneratorProps> = ({ isVisible, onClose, ti
             {isSharing ? (
               <ActivityIndicator color="white" />
             ) : (
-              <Text style={styles.buttonText}>Compartir PDF</Text>
+              <Text style={styles.buttonText}>{Platform.OS === 'web' ? 'Descargar PDF' : 'Compartir PDF'}</Text>
             )}
           </TouchableOpacity>
           <TouchableOpacity style={styles.closeButton} onPress={onClose}>

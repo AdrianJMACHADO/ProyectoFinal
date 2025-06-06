@@ -512,7 +512,7 @@ export default function TicketsScreen() {
           />
           {!isMobile && (
             <TouchableOpacity
-              style={[styles.createButton, { backgroundColor: theme.buttonPrimary }]}
+              style={[styles.createButton, { backgroundColor: '#FFC107' }]}
               onPress={() => {
                 setSelectedTicket(null);
                 setCreating(true);
@@ -550,7 +550,7 @@ export default function TicketsScreen() {
 
             {isMobile && (
               <TouchableOpacity
-                style={[styles.fab, { backgroundColor: theme.buttonPrimary }]}
+                style={[styles.fab, { backgroundColor: '#FFC107' }]}
                 onPress={() => {
                   setSelectedTicket(null);
                   setCreating(true);
