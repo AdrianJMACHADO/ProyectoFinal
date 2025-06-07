@@ -50,7 +50,6 @@ const colors = {
     dropdownBackground: '#ffffff',
     dropdownBorder: '#cccccc',
     dropdownText: '#333333',
-    createButton: '#4CAF50', // Verde para el tema claro
   },
   dark: {
     background: '#121212',
@@ -69,8 +68,7 @@ const colors = {
     dropdownBackground: '#2a2a2a',
     dropdownBorder: '#555555',
     dropdownText: '#f0f0f0',
-    createButton: '#4CAF50', // Verde para el tema oscuro
-  },
+  }
 };
 
 export const TicketEditModal: React.FC<TicketEditModalProps> = ({
@@ -311,7 +309,7 @@ export const TicketEditModal: React.FC<TicketEditModalProps> = ({
       elevation: 3,
     },
     saveButton: {
-      backgroundColor: isCreating ? theme.createButton : theme.buttonPrimary,
+      backgroundColor: theme.buttonPrimary,
     },
     cancelButton: {
       backgroundColor: theme.buttonDanger,
@@ -395,7 +393,7 @@ export const TicketEditModal: React.FC<TicketEditModalProps> = ({
     >
       <TouchableWithoutFeedback onPress={() => {
         setDropdownVisible(false);
-        if (Platform.OS !== 'web') {
+        if (Platform.OS === 'web') {
           onClose();
         }
       }}>
