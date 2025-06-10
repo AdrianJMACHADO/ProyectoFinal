@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NavigationHeader } from '../components/NavigationHeader';
 import { QRGenerator } from '../components/QRGenerator';
 import { TicketEditModal } from '../components/TicketEditModal';
+import { getApiUrl } from '../config/api';
 import { useAuth } from '../contexts/AuthContext';
 
 // Modelos
@@ -224,8 +225,8 @@ export default function TicketsScreen() {
     setError(null);
     try {
       const [ticketsRes, feriasRes] = await Promise.all([
-        fetch('http://va-server.duckdns.org:3000/api/ticket'),
-        fetch('http://va-server.duckdns.org:3000/api/feria'),
+        fetch(getApiUrl('/api/ticket')),
+        fetch(getApiUrl('/api/feria')),
       ]);
 
       if (!ticketsRes.ok) throw new Error(`HTTP error! status: ${ticketsRes.status} al cargar tickets`);
@@ -277,7 +278,7 @@ export default function TicketsScreen() {
   // Guardar ticket
   const handleSaveTicket = async (updatedTicket: Partial<Ticket>) => {
     const isCreating = !updatedTicket.idTicket || updatedTicket.idTicket === 0;
-    const url = `http://va-server.duckdns.org:3000/api/ticket${isCreating ? '' : `/${updatedTicket.idTicket}`}`;
+    const url = getApiUrl(`/api/ticket${isCreating ? '' : `/${updatedTicket.idTicket}`}`);
     const method = isCreating ? 'POST' : 'PUT';
 
     const body = isCreating ? {
@@ -346,7 +347,7 @@ export default function TicketsScreen() {
   // Cambiar estado
   const handleToggleEstado = async (ticket: Ticket) => {
     try {
-      const res = await fetch(`http://va-server.duckdns.org:3000/api/ticket/${ticket.idTicket}`, {
+      const res = await fetch(getApiUrl(`/api/ticket/${ticket.idTicket}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ estado: ticket.estado === 'ACTIVO' ? 'INACTIVO' : 'ACTIVO' }),
