@@ -1,0 +1,80 @@
+LA UVE TICKETS - PROYECTO FINAL
+=============================
+
+INFORMACIÓN DE ACCESO
+--------------------
+URL de la aplicación: http://va-server.duckdns.org:8081
+URL de la API: http://va-server.duckdns.org:3000/api
+
+Credenciales de usuario:
+- Email: adrianjuangarcia2@gmail.com
+- Contraseña: 1q2w3e4r
+
+Repositorio GitHub:
+https://github.com/AdrianJMACHADO/ProyectoFinal
+
+ESTRUCTURA DEL PROYECTO
+----------------------
+El proyecto está dividido en dos partes principales:
+
+1. Frontend (Directorio /Frontend)
+   - Desarrollado con React
+   - Implementa diseño responsive (RWD)
+   - Utiliza componentes modernos y reutilizables
+
+2. Backend (Directorio /Backend)
+   - Desarrollado con Node.js
+   - API RESTful
+   - Base de datos MySQL
+
+REQUISITOS TÉCNICOS
+------------------
+Para ejecutar el proyecto localmente:
+
+Frontend:
+- Node.js (versión 14 o superior)
+- npm o yarn
+
+Backend:
+- Node.js (versión 14 o superior)
+- MySQL
+- npm o yarn
+
+INSTALACIÓN
+----------
+1. Clonar el repositorio:
+   git clone https://github.com/AdrianJMACHADO/ProyectoFinal.git
+
+2. Configurar el Backend:
+   cd Backend
+   npm install
+   npm start
+
+3. Configurar el Frontend:
+   cd Frontend/LaUveTickets
+   npm install
+   npm start
+
+FUNCIONALIDADES PRINCIPALES
+--------------------------
+1. Gestión de Ferias:
+   - Creación y gestión de ferias
+   - Asignación de fechas
+   - Visualización de ferias activas
+
+2. Gestión de Tickets:
+   - Creación de tickets por feria
+   - Diferentes tipos de tickets (Invitación, 2x1)
+   - Control de cantidad inicial y usos
+   - Estado de tickets (ACTIVO/INACTIVO)
+
+3. Características de Tickets:
+   - Seguimiento de usos
+   - Control de estado
+   - Asociación a ferias específicas
+   - Gestión de cantidades
+
+CONTACTO
+--------
+Para cualquier consulta o soporte técnico:
+Email: adrianjuangarcia2@gmail.com 
