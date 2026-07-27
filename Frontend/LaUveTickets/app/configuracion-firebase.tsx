@@ -48,6 +48,13 @@ export default function FirebaseSetupScreen() {
   };
 
   const handleConnectJson = async () => {
+    if (!configText.trim()) {
+      setFormError(
+        'Pega primero la configuración de tu aplicación web de Firebase en el cuadro superior.',
+      );
+      return;
+    }
+
     try {
       const parsed = JSON.parse(configText);
       await connectConfig(validateFirebaseConfig(parsed));
@@ -197,7 +204,7 @@ export default function FirebaseSetupScreen() {
             <TouchableOpacity
               style={[styles.primaryButton, loading && { opacity: 0.65 }]}
               onPress={handleConnectJson}
-              disabled={loading || !configText.trim()}
+              disabled={loading}
             >
               {loading ? (
                 <ActivityIndicator color="white" />
@@ -232,4 +239,3 @@ export default function FirebaseSetupScreen() {
     </SafeAreaView>
   );
 }
-
