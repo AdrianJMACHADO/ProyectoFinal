@@ -1,0 +1,28 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    match /ferias/{feriaId} {
+      allow read, create, update: if signedIn();
+      allow delete: if false;
+    }
+
+    match /tickets/{ticketId} {
+      allow read, create, update: if signedIn();
+      allow delete: if false;
+    }
+
+    match /counters/{counterId} {
+      allow read, create, update: if signedIn();
+      allow delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

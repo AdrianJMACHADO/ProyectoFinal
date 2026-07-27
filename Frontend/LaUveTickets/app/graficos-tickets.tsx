@@ -8,6 +8,7 @@ import { PieChart } from 'react-native-chart-kit';
 import { ProgressBar } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NavigationHeader } from '../components/NavigationHeader';
+import { listFerias, listTickets } from '../services/firestoreData';
 import { Feria, Ticket } from './tickets';
 
 export default function GraficosTicketsScreen() {
@@ -33,29 +34,21 @@ export default function GraficosTicketsScreen() {
     setLoading(true);
     setError(null);
     try {
-      const [ticketsRes, feriasRes] = await Promise.all([
-        fetch('http://va-server.duckdns.org:3000/api/ticket'),
-        fetch('http://va-server.duckdns.org:3000/api/feria'),
+      const [ticketsData, feriasData] = await Promise.all([
+        listTickets(),
+        listFerias(),
       ]);
-      const ticketsData = await ticketsRes.json();
-      const feriasData = await feriasRes.json();
-      if (ticketsData.ok && feriasData.ok) {
-        setTickets(ticketsData.datos);
-        setFerias(feriasData.datos);
-        const years: string[] = Array.from(new Set(feriasData.datos.map((feria: Feria) => new Date(feria.fecha).getFullYear().toString())));
-        years.sort((a, b) => parseInt(b) - parseInt(a));
-        setAvailableYears(['Todas las fechas', ...years]);
-        if (selectedYear === null && years.length > 0) {
-          setSelectedYear(years[0]);
-        } else {
-          setSelectedYear('Todas las fechas');
-        }
-        setError(null);
+      setTickets(ticketsData);
+      setFerias(feriasData);
+      const years: string[] = Array.from(new Set(feriasData.map((feria: Feria) => new Date(feria.fecha).getFullYear().toString())));
+      years.sort((a, b) => parseInt(b) - parseInt(a));
+      setAvailableYears(['Todas las fechas', ...years]);
+      if (selectedYear === null && years.length > 0) {
+        setSelectedYear(years[0]);
       } else {
-        const errorMessage = ticketsData.mensaje || feriasData.mensaje || 'Error al cargar los datos (API)';
-        setError(errorMessage);
-        throw new Error(errorMessage);
+        setSelectedYear('Todas las fechas');
       }
+      setError(null);
     } catch (error) {
       // console.error('Error al cargar los datos:', error);
       const errorMessage = (error as Error).message || 'No se pudieron cargar los datos';
@@ -264,9 +257,14 @@ export default function GraficosTicketsScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.container, { paddingTop: insets.top }]}>
+      <SafeAreaView
+        style={[
+          styles.container,
+          { paddingTop: insets.top, backgroundColor: theme.background },
+        ]}
+      >
         <View style={styles.center}>
-          <ActivityIndicator size="large" />
+          <ActivityIndicator size="large" color={theme.buttonPrimary} />
         </View>
       </SafeAreaView>
     );
@@ -274,11 +272,19 @@ export default function GraficosTicketsScreen() {
 
   if (error) {
     return (
-      <SafeAreaView style={[styles.container, { paddingTop: insets.top }]}>
+      <SafeAreaView
+        style={[
+          styles.container,
+          { paddingTop: insets.top, backgroundColor: theme.background },
+        ]}
+      >
         <View style={styles.errorContainer}>
           <Ionicons name="cloud-offline" size={50} color="#FF3B30" />
           <ThemedText style={styles.errorTextCentered}>Error al cargar los datos: {error}</ThemedText>
-          <TouchableOpacity style={styles.retryButton} onPress={loadData}>
+          <TouchableOpacity
+            style={[styles.retryButton, { backgroundColor: theme.buttonPrimary }]}
+            onPress={loadData}
+          >
             <ThemedText style={styles.retryButtonText}>Reintentar</ThemedText>
           </TouchableOpacity>
         </View>
@@ -301,11 +307,15 @@ export default function GraficosTicketsScreen() {
       })
       : tickets;
 
-  const ticketsActivosFiltered = filteredTickets.filter(t => t.estado === 'ACTIVO');
+  // Los agotados siguen contando mientras estén activos. Los inactivos se
+  // consideran dados de baja administrativamente y no aparecen en gráficas.
+  const ticketsContabilizados = filteredTickets.filter(
+    ticket => ticket.estado === 'ACTIVO',
+  );
   const feriaMapFiltered = Object.fromEntries(filteredFerias.map(f => [String(f.idFeria), f.nombre]));
-  const feriasUnicasFiltered = Array.from(new Set(ticketsActivosFiltered.map(t => t.idFeria)));
+  const feriasUnicasFiltered = Array.from(new Set(ticketsContabilizados.map(t => t.idFeria)));
   const feriaLabelsFiltered = feriasUnicasFiltered.map(f => feriaMapFiltered[String(f)] || 'Sin Feria');
-  const ticketsPorFeriaFiltered = feriasUnicasFiltered.map(f => ticketsActivosFiltered.filter(t => t.idFeria === f));
+  const ticketsPorFeriaFiltered = feriasUnicasFiltered.map(f => ticketsContabilizados.filter(t => t.idFeria === f));
   const generadosPorFeriaFiltered = ticketsPorFeriaFiltered.map(arr => arr.reduce((sum, t) => sum + (t.cantidad_inicial || 0), 0));
   const usadosPorFeriaFiltered = ticketsPorFeriaFiltered.map(arr => arr.reduce((sum, t) => sum + Math.min(t.usos || 0, t.cantidad_inicial || 0), 0));
   const noUsadosPorFeriaFiltered = generadosPorFeriaFiltered.map((gen, i) => Math.max(gen - usadosPorFeriaFiltered[i], 0));

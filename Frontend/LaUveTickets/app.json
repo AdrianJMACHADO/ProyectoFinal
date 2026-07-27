@@ -20,14 +20,16 @@
       "config": {
         "usesNonExemptEncryption": false
       },
-      "icon": "./assets/images/v.png"
+      "icon": "./assets/images/v.png",
+      "runtimeVersion": "exposdk:54.0.0"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/v.png",
         "backgroundColor": "#f5f5f5"
       },
-      "package": "com.lauve.lauvetickets"
+      "package": "com.lauve.lauvetickets",
+      "runtimeVersion": "exposdk:54.0.0"
     },
     "web": {
       "bundler": "metro",
@@ -36,7 +38,14 @@
       "favicon": "./assets/images/v.png"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "LaUveTickets necesita la cámara para escanear los códigos QR de los tickets.",
+          "barcodeScannerEnabled": true
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
@@ -47,6 +56,9 @@
       "eas": {
         "projectId": "af84d2a0-4a11-4494-a698-6b23bab417bd"
       }
+    },
+    "updates": {
+      "url": "https://u.expo.dev/af84d2a0-4a11-4494-a698-6b23bab417bd"
     }
   }
 }

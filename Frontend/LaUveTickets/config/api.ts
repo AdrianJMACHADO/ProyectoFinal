@@ -1,12 +1,16 @@
-// Configuración de la API
-const API_CONFIG = {
-  BASE_URL: 'http://va-server.duckdns.org:3000',
-  ENDPOINTS: {
-    TICKETS: '/api/ticket',
-    FERIAS: '/api/feria',
-  }
-};
+/**
+ * Configuración del backend REST anterior.
+ *
+ * Se conserva únicamente como referencia durante la migración. La aplicación
+ * ya no debe importar este archivo: ferias y tickets se leen y escriben desde
+ * services/firestoreData.ts.
+ */
+// const LEGACY_API_CONFIG = {
+//   BASE_URL: 'http://va-server.duckdns.org:3000',
+//   ENDPOINTS: {
+//     TICKETS: '/api/ticket',
+//     FERIAS: '/api/feria',
+//   },
+// };
 
-export const getApiUrl = (endpoint: string) => `${API_CONFIG.BASE_URL}${endpoint}`;
-
-export default API_CONFIG; 
+export {};

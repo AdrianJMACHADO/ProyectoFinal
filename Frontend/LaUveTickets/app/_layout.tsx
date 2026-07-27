@@ -18,7 +18,15 @@ function RootLayoutNav() {
   }
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        animation: 'fade',
+        animationDuration: 220,
+        gestureEnabled: true,
+        fullScreenGestureEnabled: true,
+      }}
+    >
       {!user ? (
         // Rutas públicas
         <Stack.Screen 
@@ -33,7 +41,15 @@ function RootLayoutNav() {
         // Rutas protegidas
         <>
           <Stack.Screen name="tickets" />
-          <Stack.Screen name="tickets/[id]" />
+          <Stack.Screen
+            name="tickets/[id]"
+            options={{
+              animation: 'slide_from_right',
+              animationDuration: 280,
+              gestureEnabled: true,
+              fullScreenGestureEnabled: true,
+            }}
+          />
           <Stack.Screen name="ferias" />
           <Stack.Screen name="graficos-tickets" />
           <Stack.Screen name="graficos-ferias" />

@@ -8,6 +8,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, SafeAreaView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NavigationHeader } from '../../components/NavigationHeader';
+import { consumeTicket, createTicket, getTicket } from '../../services/firestoreData';
 import { Ticket } from '../tickets';
 
 
@@ -29,13 +30,9 @@ export default function TicketDetailScreen() {
 
   const loadTicket = async () => {
     try {
-      const res = await fetch(`http://va-server.duckdns.org:3000/api/ticket/${id}`);
-      const data = await res.json();
-      if (data.ok) {
-        setTicket(data.datos);
-      } else {
-        throw new Error('Error al cargar el ticket');
-      }
+      const data = await getTicket(Number(id));
+      if (!data) throw new Error('Ticket no encontrado');
+      setTicket(data);
     } catch (error) {
       Alert.alert('Error', 'No se pudo cargar el ticket');
       router.back();
@@ -55,26 +52,8 @@ export default function TicketDetailScreen() {
 
     setUpdating(true);
     try {
-      const newUsos = (ticket.usos || 0) + 1;
-      const res = await fetch(`http://va-server.duckdns.org:3000/api/ticket/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...ticket,
-          usos: newUsos,
-          // Si los usos llegan al máximo, poner el ticket como inactivo
-          estado: newUsos >= ticket.cantidad_inicial ? 'INACTIVO' : 'ACTIVO'
-        }),
-      });
-
-      const data = await res.json();
-      if (data.ok) {
-        setTicket(data.datos);
-      } else {
-        throw new Error('Error al actualizar los usos');
-      }
+      const updated = await consumeTicket(ticket.idTicket);
+      setTicket(updated);
     } catch (error) {
       Alert.alert('Error', 'No se pudo actualizar los usos');
     } finally {
@@ -94,24 +73,12 @@ export default function TicketDetailScreen() {
         tipo: ticket.tipo, // Mantener tipo
         cantidad_inicial: ticket.cantidad_inicial, // Mantener cantidad_inicial
         usos: 0, // Resetear usos a 0
-        estado: 'ACTIVO', // Poner estado a ACTIVO
+        estado: 'ACTIVO' as const, // Poner estado administrativo a ACTIVO
+        agotado: false,
         // idTicket y fecha_creacion no se envían, la API los generará
       };
 
-      const res = await fetch('http://va-server.duckdns.org:3000/api/ticket', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(ticketToDuplicate),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok || !data.ok) {
-        console.error('API Error (Duplicating):', data);
-        throw new Error(data.mensaje || `Error HTTP ${res.status} al duplicar el ticket`);
-      }
+      await createTicket(ticketToDuplicate);
 
       Alert.alert('Éxito', 'Ticket duplicado correctamente');
       // Opcional: redirigir al nuevo ticket o refrescar la lista de tickets principal
@@ -171,7 +138,8 @@ export default function TicketDetailScreen() {
   }
 
   const isActive = ticket.estado === 'ACTIVO';
-  const canIncrement = isActive && (ticket.usos || 0) < ticket.cantidad_inicial;
+  const isExhausted = ticket.agotado ?? (ticket.usos || 0) >= ticket.cantidad_inicial;
+  const canIncrement = isActive && !isExhausted;
 
   return (
     <SafeAreaView style={[styles.container, { paddingTop: insets.top, backgroundColor: theme.background }]}>
@@ -183,8 +151,8 @@ export default function TicketDetailScreen() {
             styles.details,
             {
               borderLeftWidth: 4,
-              borderLeftColor: isActive ? theme.success : theme.error,
-              backgroundColor: isActive ? `${theme.success}10` : `${theme.error}10`
+              borderLeftColor: !isActive ? theme.error : isExhausted ? '#FF9500' : theme.success,
+              backgroundColor: !isActive ? `${theme.error}10` : isExhausted ? '#FF950010' : `${theme.success}10`
             }
           ]}
         >
@@ -201,6 +169,13 @@ export default function TicketDetailScreen() {
                   {ticket.estado}
                 </ThemedText>
               </TouchableOpacity>
+              {isExhausted && (
+                <View style={[styles.estadoButton, { backgroundColor: '#FF9500' }]}>
+                  <ThemedText type="button" style={styles.estadoText}>
+                    AGOTADO
+                  </ThemedText>
+                </View>
+              )}
               <TouchableOpacity
                 style={[
                   styles.duplicateButton,
@@ -385,4 +360,4 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
-}); 
+});

@@ -10,6 +10,7 @@ import { ActivityIndicator, Alert, Dimensions, FlatList, Modal, Platform, SafeAr
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NavigationHeader } from '../components/NavigationHeader';
 import { useAuth } from '../contexts/AuthContext';
+import { createFeria, listFerias, updateFeria } from '../services/firestoreData';
 
 // Caracteres especiales a filtrar de los inputs (para seguridad)
 const inputFilterRegex = /[;"'=\\<>]/g;
@@ -20,8 +21,6 @@ interface Feria {
   nombre: string;
   fecha: string;
 }
-
-const FERIAS_API = 'http://va-server.duckdns.org:3000/api/feria';
 
 const FeriasScreen: React.FC = () => {
   const router = useRouter();
@@ -52,24 +51,17 @@ const FeriasScreen: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(FERIAS_API);
-      const data = await res.json();
-      if (data.ok) {
-        setFerias(data.datos);
-        const years: string[] = Array.from(new Set(data.datos.map((feria: Feria) => new Date(feria.fecha).getFullYear().toString())));
-        years.sort((a, b) => parseInt(b) - parseInt(a));
-        setAvailableYears(['Todas las fechas', ...years]);
-        if (selectedYear === null && years.length > 0) {
-          setSelectedYear(years[0]);
-        } else {
-          setSelectedYear('Todas las fechas');
-        }
-        setError(null);
+      const data = await listFerias();
+      setFerias(data);
+      const years: string[] = Array.from(new Set(data.map((feria: Feria) => new Date(feria.fecha).getFullYear().toString())));
+      years.sort((a, b) => parseInt(b) - parseInt(a));
+      setAvailableYears(['Todas las fechas', ...years]);
+      if (selectedYear === null && years.length > 0) {
+        setSelectedYear(years[0]);
       } else {
-        const errorMessage = data.mensaje || 'Error al cargar las ferias (API)';
-        setError(errorMessage);
-        throw new Error(errorMessage);
+        setSelectedYear('Todas las fechas');
       }
+      setError(null);
     } catch (e) {
       // console.error('Error al cargar los datos:', e);
       const errorMessage = (e as Error).message || 'No se pudieron cargar las ferias.';
@@ -126,24 +118,10 @@ const FeriasScreen: React.FC = () => {
     setLoading(true);
     setModalError(null);
     try {
-      const url = editMode && selectedFeria
-        ? `${FERIAS_API}/${selectedFeria.idFeria}`
-        : FERIAS_API;
-      const method = editMode && selectedFeria ? 'PUT' : 'POST';
-
-      const res = await fetch(url, {
-        method: method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok || !data.ok) {
-        console.error('API Error:', data);
-        const errorMessage = data.mensaje || `Error HTTP ${res.status} al ${editMode ? 'editar' : 'crear'} la feria`;
-        setModalError(errorMessage);
-        return false;
+      if (editMode && selectedFeria) {
+        await updateFeria(selectedFeria.idFeria, form);
+      } else {
+        await createFeria(form);
       }
 
       Alert.alert('Éxito', `${editMode ? 'Feria actualizada' : 'Feria creada'} correctamente`);
@@ -577,4 +555,4 @@ const FeriasScreen: React.FC = () => {
   );
 };
 
-export default FeriasScreen; 
+export default FeriasScreen;

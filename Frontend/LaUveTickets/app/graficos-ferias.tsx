@@ -9,6 +9,7 @@ import { ActivityIndicator, Alert, Dimensions, SafeAreaView, ScrollView, StyleSh
 import { PieChart } from 'react-native-chart-kit';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NavigationHeader } from '../components/NavigationHeader';
+import { listFerias } from '../services/firestoreData';
 import { Feria } from './tickets';
 
 export default function GraficosFeriasScreen() {
@@ -32,24 +33,17 @@ export default function GraficosFeriasScreen() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch('http://va-server.duckdns.org:3000/api/feria');
-      const data = await response.json();
-      if (data.ok) {
-        setFerias(data.datos);
-        const years: string[] = Array.from(new Set(data.datos.map((feria: Feria) => new Date(feria.fecha).getFullYear().toString())));
-        years.sort((a, b) => parseInt(b) - parseInt(a));
-        setAvailableYears(['Todas las fechas', ...years]);
-        if (selectedYear === null && years.length > 0) {
-          setSelectedYear(years[0]);
-        } else {
-          setSelectedYear('Todas las fechas');
-        }
-        setError(null);
+      const data = await listFerias();
+      setFerias(data);
+      const years: string[] = Array.from(new Set(data.map((feria: Feria) => new Date(feria.fecha).getFullYear().toString())));
+      years.sort((a, b) => parseInt(b) - parseInt(a));
+      setAvailableYears(['Todas las fechas', ...years]);
+      if (selectedYear === null && years.length > 0) {
+        setSelectedYear(years[0]);
       } else {
-        const errorMessage = data.mensaje || 'Error al cargar los datos (API)';
-        setError(errorMessage);
-        throw new Error(errorMessage);
+        setSelectedYear('Todas las fechas');
       }
+      setError(null);
     } catch (error) {
       // console.error('Error al cargar los datos:', error);
       const errorMessage = (error as Error).message || 'No se pudieron cargar los datos';
@@ -263,4 +257,4 @@ export default function GraficosFeriasScreen() {
       </ScrollView>
     </SafeAreaView>
   );
-} 
+}

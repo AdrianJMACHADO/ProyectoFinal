@@ -1,6 +1,6 @@
 import { useTheme } from '@/hooks/useThemeColor';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { usePathname, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
   Dimensions,
@@ -26,6 +26,7 @@ export function NavigationHeader({
   onYearChange
 }: NavigationHeaderProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const { logout } = useAuth();
   const [showYearModal, setShowYearModal] = useState(false);
   const screenWidth = Dimensions.get('window').width;
@@ -40,6 +41,14 @@ export function NavigationHeader({
   const handleYearSelect = (year: string | null) => {
     onYearChange?.(year);
     setShowYearModal(false);
+  };
+
+  const navigateTo = (
+    route: '/tickets' | '/ferias' | '/graficos-tickets' | '/graficos-ferias',
+  ) => {
+    if (pathname !== route) {
+      router.replace(route);
+    }
   };
 
   const YearSelector = () => (
@@ -206,25 +215,25 @@ export function NavigationHeader({
       <View style={[styles.navButtons, isSmallScreen && styles.navButtonsSmall]}>
         <TouchableOpacity 
           style={[styles.navButton, isSmallScreen && styles.navButtonSmall]} 
-          onPress={() => router.push('/tickets')}
+          onPress={() => navigateTo('/tickets')}
         >
           <Ionicons name="ticket" size={isSmallScreen ? 20 : 24} color={theme.buttonPrimary} />
         </TouchableOpacity>
         <TouchableOpacity 
           style={[styles.navButton, isSmallScreen && styles.navButtonSmall]} 
-          onPress={() => router.push('/ferias')}
+          onPress={() => navigateTo('/ferias')}
         >
           <Ionicons name="calendar" size={isSmallScreen ? 20 : 24} color={theme.buttonPrimary} />
         </TouchableOpacity>
         <TouchableOpacity 
           style={[styles.navButton, isSmallScreen && styles.navButtonSmall]} 
-          onPress={() => router.push('/graficos-tickets')}
+          onPress={() => navigateTo('/graficos-tickets')}
         >
           <Ionicons name="bar-chart" size={isSmallScreen ? 20 : 24} color={theme.buttonPrimary} />
         </TouchableOpacity>
         <TouchableOpacity 
           style={[styles.navButton, isSmallScreen && styles.navButtonSmall]} 
-          onPress={() => router.push('/graficos-ferias')}
+          onPress={() => navigateTo('/graficos-ferias')}
         >
           <Ionicons name="pie-chart" size={isSmallScreen ? 20 : 24} color={theme.buttonPrimary} />
         </TouchableOpacity>

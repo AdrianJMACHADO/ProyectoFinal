@@ -1,4 +1,4 @@
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Print from 'expo-print';
 import { shareAsync } from 'expo-sharing';
 import React, { useRef, useState } from 'react';
@@ -6,7 +6,8 @@ import { ActivityIndicator, Alert, Platform, StyleSheet, Text, TouchableOpacity,
 import Modal from 'react-native-modal';
 import QRCode from 'react-native-qrcode-svg';
 
-const BASE_URL = 'http://va-server.duckdns.org:8081';
+// URL web anterior conservada como referencia durante la migración:
+// const LEGACY_WEB_URL = 'http://va-server.duckdns.org:8081';
 
 interface QRGeneratorProps {
   isVisible: boolean;
@@ -215,4 +216,4 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
   },
-}); 
+});

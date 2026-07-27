@@ -9,25 +9,24 @@ type ThemedViewProps = ViewProps & {
 
 export function ThemedView(props: ThemedViewProps) {
   const { style, lightColor, darkColor, type = 'default', ...otherProps } = props;
-  
-  const getBackgroundColor = () => {
-    switch (type) {
-      case 'card':
-        return useThemeColor('card', { light: lightColor, dark: darkColor });
-      case 'input':
-        return useThemeColor('inputBackground', { light: lightColor, dark: darkColor });
-      case 'modal':
-        return useThemeColor('modalBackground', { light: lightColor, dark: darkColor });
-      default:
-        return useThemeColor('background', { light: lightColor, dark: darkColor });
-    }
-  };
+  const colorName =
+    type === 'card'
+      ? 'card'
+      : type === 'input'
+        ? 'inputBackground'
+        : type === 'modal'
+          ? 'modalBackground'
+          : 'background';
+  const backgroundColor = useThemeColor(colorName, {
+    light: lightColor,
+    dark: darkColor,
+  });
 
   return (
     <View
       style={[
         {
-          backgroundColor: getBackgroundColor(),
+          backgroundColor,
         },
         style,
       ]}

@@ -8,10 +8,16 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, FlatList, SafeAreaView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NavigationHeader } from '../components/NavigationHeader';
+import { QRScannerModal } from '../components/QRScannerModal';
 import { QRGenerator } from '../components/QRGenerator';
 import { TicketEditModal } from '../components/TicketEditModal';
-import { getApiUrl } from '../config/api';
 import { useAuth } from '../contexts/AuthContext';
+import {
+  createTicket,
+  listFerias,
+  listTickets,
+  updateTicket,
+} from '../services/firestoreData';
 
 // Modelos
 export type Ticket = {
@@ -22,7 +28,8 @@ export type Ticket = {
   fecha_creacion?: string;
   cantidad_inicial: number;
   usos?: number;
-  estado?: string;
+  estado?: 'ACTIVO' | 'INACTIVO';
+  agotado?: boolean;
 };
 
 export type Feria = {
@@ -37,6 +44,7 @@ export default function TicketsScreen() {
   const [loading, setLoading] = useState(true);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [qrModalVisible, setQrModalVisible] = useState(false);
+  const [scannerVisible, setScannerVisible] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const { logout } = useAuth();
   const router = useRouter();
@@ -187,6 +195,21 @@ export default function TicketsScreen() {
       shadowOpacity: 0.2,
       shadowRadius: 4,
     },
+    scannerFab: {
+      position: 'absolute',
+      left: 16,
+      bottom: 16,
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      justifyContent: 'center',
+      alignItems: 'center',
+      elevation: 4,
+      shadowColor: theme.shadow,
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.2,
+      shadowRadius: 4,
+    },
     center: { 
       flex: 1, 
       justifyContent: 'center', 
@@ -224,36 +247,24 @@ export default function TicketsScreen() {
     setLoading(true);
     setError(null);
     try {
-      const [ticketsRes, feriasRes] = await Promise.all([
-        fetch(getApiUrl('/api/ticket')),
-        fetch(getApiUrl('/api/feria')),
+      const [ticketsData, feriasData] = await Promise.all([
+        listTickets(),
+        listFerias(),
       ]);
 
-      if (!ticketsRes.ok) throw new Error(`HTTP error! status: ${ticketsRes.status} al cargar tickets`);
-      if (!feriasRes.ok) throw new Error(`HTTP error! status: ${feriasRes.status} al cargar ferias`);
-
-      const ticketsData = await ticketsRes.json();
-      const feriasData = await feriasRes.json();
-
-      if (ticketsData.ok && feriasData.ok) {
-        setTickets(ticketsData.datos);
-        setFerias(feriasData.datos);
-        const years: string[] = Array.from(new Set(ticketsData.datos
-          .filter((ticket: Ticket) => ticket.fecha_creacion)
-          .map((ticket: Ticket) => new Date(ticket.fecha_creacion!).getFullYear().toString())));
-        years.sort((a, b) => parseInt(b) - parseInt(a));
-        setAvailableYears(['Todas las fechas', ...years]);
-        if (years.length > 0) {
-          setSelectedYear(years[0]);
-        } else {
-          setSelectedYear('Todas las fechas');
-        }
-        setError(null);
+      setTickets(ticketsData);
+      setFerias(feriasData);
+      const years: string[] = Array.from(new Set(ticketsData
+        .filter((ticket: Ticket) => ticket.fecha_creacion)
+        .map((ticket: Ticket) => new Date(ticket.fecha_creacion!).getFullYear().toString())));
+      years.sort((a, b) => parseInt(b) - parseInt(a));
+      setAvailableYears(['Todas las fechas', ...years]);
+      if (years.length > 0) {
+        setSelectedYear(years[0]);
       } else {
-        const errorMessage = ticketsData.mensaje || feriasData.mensaje || 'Error al cargar los datos (API)';
-        setError(errorMessage);
-        throw new Error(errorMessage);
+        setSelectedYear('Todas las fechas');
       }
+      setError(null);
     } catch (e) {
       // console.error('Error al cargar los datos:', e);
       const errorMessage = (e as Error).message || 'No se pudieron cargar los datos';
@@ -278,44 +289,31 @@ export default function TicketsScreen() {
   // Guardar ticket
   const handleSaveTicket = async (updatedTicket: Partial<Ticket>) => {
     const isCreating = !updatedTicket.idTicket || updatedTicket.idTicket === 0;
-    const url = getApiUrl(`/api/ticket${isCreating ? '' : `/${updatedTicket.idTicket}`}`);
-    const method = isCreating ? 'POST' : 'PUT';
-
-    const body = isCreating ? {
-      idFeria: updatedTicket.idFeria,
-      nombre: updatedTicket.nombre,
-      tipo: updatedTicket.tipo,
-      cantidad_inicial: updatedTicket.cantidad_inicial,
-      estado: updatedTicket.estado,
-    } : {
-      nombre: updatedTicket.nombre,
-      tipo: updatedTicket.tipo,
-      estado: updatedTicket.estado,
-      usos: updatedTicket.usos,
-    };
 
     try {
-      const res = await fetch(url, {
-        method: method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok || !data.ok) {
-        console.error('API Error:', data);
-        return { success: false, message: data.mensaje || `Error HTTP ${res.status} al ${isCreating ? 'crear' : 'actualizar'} el ticket` };
-      }
-
       if (isCreating) {
-        return { success: true, message: 'Ticket creado correctamente', newTicketId: data.datos?.idTicket };
+        const created = await createTicket({
+          idFeria: updatedTicket.idFeria ?? null,
+          nombre: updatedTicket.nombre!,
+          tipo: updatedTicket.tipo!,
+          cantidad_inicial: updatedTicket.cantidad_inicial!,
+          usos: 0,
+          estado: updatedTicket.estado ?? 'ACTIVO',
+          agotado: false,
+        });
+        return { success: true, message: 'Ticket creado correctamente', newTicketId: created.idTicket };
       } else {
+        await updateTicket(updatedTicket.idTicket!, {
+          nombre: updatedTicket.nombre,
+          tipo: updatedTicket.tipo,
+          estado: updatedTicket.estado,
+          usos: updatedTicket.usos,
+        });
         return { success: true, message: 'Ticket actualizado correctamente' };
       }
 
     } catch (e) {
-      console.error('Fetch Error:', e);
+      console.error('Firestore Error:', e);
       return { success: false, message: (e as Error).message || `No se pudo ${isCreating ? 'crear' : 'actualizar'} el ticket` };
     }
   };
@@ -347,23 +345,12 @@ export default function TicketsScreen() {
   // Cambiar estado
   const handleToggleEstado = async (ticket: Ticket) => {
     try {
-      const res = await fetch(getApiUrl(`/api/ticket/${ticket.idTicket}`), {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ estado: ticket.estado === 'ACTIVO' ? 'INACTIVO' : 'ACTIVO' }),
+      await updateTicket(ticket.idTicket, {
+        estado: ticket.estado === 'ACTIVO' ? 'INACTIVO' : 'ACTIVO',
       });
-
-      if (!res.ok) throw new Error(`HTTP error! status: ${res.status} al cambiar estado`);
-
-      const data = await res.json();
-      if (data.ok) {
-        loadData();
-      } else {
-        throw new Error(data.mensaje || 'Error al cambiar estado (API)');
-      }
-
+      await loadData();
     } catch (e) {
-      console.error('Fetch Error:', e);
+      console.error('Firestore Error:', e);
       Alert.alert('Error', (e as Error).message || 'No se pudo cambiar el estado');
     }
   };
@@ -372,14 +359,17 @@ export default function TicketsScreen() {
   const renderTicket = ({ item }: { item: Ticket }) => {
     const feria = ferias.find(f => f.idFeria === item.idFeria);
     const usoPorcentaje = item.usos ? (item.usos / item.cantidad_inicial) * 100 : 0;
+    const isActive = item.estado === 'ACTIVO';
+    const isExhausted = item.agotado ?? (item.usos ?? 0) >= item.cantidad_inicial;
+    const statusColor = !isActive ? theme.error : isExhausted ? '#FF9500' : theme.success;
     
     return (
       <ThemedView type="card" style={[
         styles.ticketCard,
         { 
           borderLeftWidth: 4,
-          borderLeftColor: item.estado === 'ACTIVO' ? theme.success : theme.error,
-          backgroundColor: item.estado === 'ACTIVO' ? `${theme.success}10` : `${theme.error}10`
+          borderLeftColor: statusColor,
+          backgroundColor: `${statusColor}10`
         }
       ]}>
         <View style={styles.ticketHeader}>
@@ -394,7 +384,7 @@ export default function TicketsScreen() {
             onPress={() => handleToggleEstado(item)}
             style={[
               styles.estadoButton,
-              { backgroundColor: item.estado === 'ACTIVO' ? theme.success : theme.error }
+              { backgroundColor: isActive ? theme.success : theme.error }
             ]}
           >
             <ThemedText type="button" style={styles.estadoText}>
@@ -408,6 +398,11 @@ export default function TicketsScreen() {
             <ThemedText>Tipo: {item.tipo}</ThemedText>
             <ThemedText>Usos: {item.usos || 0}/{item.cantidad_inicial}</ThemedText>
           </View>
+          {isExhausted && (
+            <ThemedText style={{ color: '#FF9500', fontWeight: '700', marginBottom: 8 }}>
+              AGOTADO
+            </ThemedText>
+          )}
           <View style={styles.progressContainer}>
             <View style={[styles.progressBar, { width: `${usoPorcentaje}%`, backgroundColor: theme.buttonPrimary }]} />
           </View>
@@ -550,19 +545,30 @@ export default function TicketsScreen() {
             />
 
             {isMobile && (
-              <TouchableOpacity
-                style={[styles.fab, { backgroundColor: '#FFC107' }]}
-                onPress={() => {
-                  setSelectedTicket(null);
-                  setCreating(true);
-                  setEditModalVisible(true);
-                }}
-              >
-                <Ionicons name="add" size={24} color="white" />
-              </TouchableOpacity>
+              <>
+                <TouchableOpacity
+                  accessibilityLabel="Crear ticket"
+                  style={[styles.fab, { backgroundColor: '#FFC107' }]}
+                  onPress={() => {
+                    setSelectedTicket(null);
+                    setCreating(true);
+                    setEditModalVisible(true);
+                  }}
+                >
+                  <Ionicons name="add" size={24} color="white" />
+                </TouchableOpacity>
+              </>
             )}
           </>
         )}
+
+        <TouchableOpacity
+          accessibilityLabel="Escanear código QR"
+          style={[styles.scannerFab, { backgroundColor: theme.buttonPrimary }]}
+          onPress={() => setScannerVisible(true)}
+        >
+          <Ionicons name="scan" size={26} color="white" />
+        </TouchableOpacity>
       </View>
 
       <TicketEditModal
@@ -587,6 +593,12 @@ export default function TicketsScreen() {
         nombre={selectedTicket?.nombre || ''}
         tipo={selectedTicket?.tipo || ''}
         cantidadInicial={selectedTicket?.cantidad_inicial || 0}
+      />
+
+      <QRScannerModal
+        visible={scannerVisible}
+        onClose={() => setScannerVisible(false)}
+        onTicketScanned={(ticketId) => router.push(`/tickets/${ticketId}`)}
       />
     </SafeAreaView>
   );
