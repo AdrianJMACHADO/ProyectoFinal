@@ -1,0 +1,33 @@
+# Dependencies and generated Expo bundles
+node_modules/
+.expo/
+dist/
+web-build/
+
+# Local Android caches and build products
+android/.gradle/
+android/.cxx/
+android/app/.cxx/
+android/app/build/
+android/build/
+
+# Local tooling
+.kotlin/
+.idea/
+*.iml
+*.hprof
+*.log
+*.tsbuildinfo
+
+# Local credentials and environment
+.env*.local
+*.jks
+*.keystore
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# OS files
+.DS_Store
+Thumbs.db
