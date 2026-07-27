@@ -27,7 +27,8 @@ export function NavigationHeader({
 }: NavigationHeaderProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { logout } = useAuth();
+  const { logout, role } = useAuth();
+  const isEmployee = role === 'EMPLEADO';
   const [showYearModal, setShowYearModal] = useState(false);
   const screenWidth = Dimensions.get('window').width;
   const isSmallScreen = screenWidth < 600;
@@ -44,10 +45,15 @@ export function NavigationHeader({
   };
 
   const navigateTo = (
-    route: '/tickets' | '/ferias' | '/graficos-tickets' | '/graficos-ferias',
+    route:
+      | '/tickets'
+      | '/ferias'
+      | '/graficos-tickets'
+      | '/graficos-ferias'
+      | '/usuarios',
   ) => {
     if (pathname !== route) {
-      router.replace(route);
+      router.replace(route as any);
     }
   };
 
@@ -212,6 +218,7 @@ export function NavigationHeader({
 
   return (
     <ThemedView type="card" style={styles.header}>
+      {!isEmployee && (
       <View style={[styles.navButtons, isSmallScreen && styles.navButtonsSmall]}>
         <TouchableOpacity 
           style={[styles.navButton, isSmallScreen && styles.navButtonSmall]} 
@@ -237,10 +244,17 @@ export function NavigationHeader({
         >
           <Ionicons name="pie-chart" size={isSmallScreen ? 20 : 24} color={theme.buttonPrimary} />
         </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.navButton, isSmallScreen && styles.navButtonSmall]}
+          onPress={() => navigateTo('/usuarios')}
+        >
+          <Ionicons name="people" size={isSmallScreen ? 20 : 24} color={theme.buttonPrimary} />
+        </TouchableOpacity>
       </View>
+      )}
 
       <View style={styles.rightSection}>
-        {availableYears && availableYears.length > 0 && selectedYear !== undefined && onYearChange && (
+        {!isEmployee && availableYears && availableYears.length > 0 && selectedYear !== undefined && onYearChange && (
           <TouchableOpacity
             style={[styles.yearSelector, isSmallScreen && styles.yearSelectorSmall, {
               backgroundColor: theme.inputBackground,

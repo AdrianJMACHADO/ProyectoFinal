@@ -46,7 +46,8 @@ export default function TicketsScreen() {
   const [qrModalVisible, setQrModalVisible] = useState(false);
   const [scannerVisible, setScannerVisible] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
-  const { logout } = useAuth();
+  const { logout, role } = useAuth();
+  const isEmployee = role === 'EMPLEADO';
   const router = useRouter();
   const [creating, setCreating] = useState(false);
   const screenWidth = Dimensions.get('window').width;
@@ -246,6 +247,12 @@ export default function TicketsScreen() {
   const loadData = async () => {
     setLoading(true);
     setError(null);
+    if (isEmployee) {
+      setTickets([]);
+      setFerias([]);
+      setLoading(false);
+      return;
+    }
     try {
       const [ticketsData, feriasData] = await Promise.all([
         listTickets(),
@@ -274,7 +281,7 @@ export default function TicketsScreen() {
     setLoading(false);
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { loadData(); }, [isEmployee]);
 
   // Handler para el cambio de año desde NavigationHeader
   const handleYearChange = (year: string | null) => {
@@ -494,7 +501,7 @@ export default function TicketsScreen() {
       />
 
       <View style={styles.content}>
-        <View style={styles.searchContainer}>
+        {!isEmployee && <View style={styles.searchContainer}>
           <TextInput
             style={[styles.searchInput, { 
               backgroundColor: theme.inputBackground,
@@ -519,9 +526,11 @@ export default function TicketsScreen() {
               <ThemedText type="button" style={styles.buttonText}>Crear Ticket</ThemedText>
             </TouchableOpacity>
           )}
-        </View>
+        </View>}
 
-        {loading ? (
+        {isEmployee ? (
+          <View style={styles.content} />
+        ) : loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={theme.buttonPrimary} />
           </View>

@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Keyboard, Platform, StyleSheet, TextInput, TouchableOpacity, TouchableWithoutFeedback, useWindowDimensions, View } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
+import { useFirebaseConfig } from '../contexts/FirebaseConfigContext';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -15,6 +16,7 @@ export default function LoginScreen() {
   const [inputErrors, setInputErrors] = useState<{ email?: boolean; password?: boolean }>({});
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const { login } = useAuth();
+  const { config, disconnect } = useFirebaseConfig();
   const router = useRouter();
   const theme = useTheme();
   const { width } = useWindowDimensions();
@@ -126,15 +128,56 @@ export default function LoginScreen() {
       marginTop: 15,
       marginBottom: 10,
       zIndex: 1,
-    }
+    },
+    connectionButton: {
+      position: 'absolute',
+      top: Platform.OS === 'ios' ? 18 : 12,
+      left: 14,
+      zIndex: 10,
+      width: 44,
+      height: 44,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 22,
+      backgroundColor: theme.inputBackground,
+    },
+    projectText: {
+      textAlign: 'center',
+      opacity: 0.55,
+      fontSize: 12,
+      marginTop: -20,
+      marginBottom: 22,
+    },
   });
 
   return (
     <TouchableWithoutFeedback onPress={Platform.OS === 'ios' || Platform.OS === 'android' ? Keyboard.dismiss : undefined}>
       <View style={[styles.container, { backgroundColor: theme.background }]}>
+        <TouchableOpacity
+          style={styles.connectionButton}
+          onPress={() =>
+            Alert.alert(
+              'Proyecto Firebase',
+              `Conectado a: ${config?.projectId ?? 'desconocido'}`,
+              [
+                { text: 'Cancelar', style: 'cancel' },
+                {
+                  text: 'Cambiar proyecto',
+                  style: 'destructive',
+                  onPress: disconnect,
+                },
+              ],
+            )
+          }
+        >
+          <Ionicons name="ellipsis-horizontal" size={24} color={theme.text} />
+        </TouchableOpacity>
         <ThemedView type="card" style={styles.formContainer}>
           <ThemedText type="title" style={styles.title}>LaUve Tickets</ThemedText>
           <ThemedText type="subtitle" style={styles.subtitle}>Inicia sesión para continuar</ThemedText>
+          <ThemedText style={styles.projectText}>
+            Firebase: {config?.projectId}
+          </ThemedText>
 
           <View style={[styles.inputContainer, inputErrors.email && styles.inputErrorBorder]}>
             <TextInput
@@ -184,6 +227,16 @@ export default function LoginScreen() {
             ) : (
               <ThemedText type="button" style={styles.buttonText}>Iniciar Sesión</ThemedText>
             )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={{ paddingVertical: 16, alignItems: 'center' }}
+            onPress={() => router.push('/registro-admin' as any)}
+            disabled={loading}
+          >
+            <ThemedText style={{ color: theme.buttonPrimary, fontWeight: '600' }}>
+              Configurar el administrador inicial
+            </ThemedText>
           </TouchableOpacity>
         </ThemedView>
       </View>

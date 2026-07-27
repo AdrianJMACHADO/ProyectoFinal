@@ -8,6 +8,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, SafeAreaView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NavigationHeader } from '../../components/NavigationHeader';
+import { useAuth } from '../../contexts/AuthContext';
 import { consumeTicket, createTicket, getTicket } from '../../services/firestoreData';
 import { Ticket } from '../tickets';
 
@@ -20,6 +21,8 @@ export default function TicketDetailScreen() {
   const [duplicating, setDuplicating] = useState(false);
   const router = useRouter();
   const theme = useTheme();
+  const { role } = useAuth();
+  const isEmployee = role === 'EMPLEADO';
 
   // Hook para obtener las áreas seguras
   const insets = useSafeAreaInsets();
@@ -159,7 +162,7 @@ export default function TicketDetailScreen() {
           <View style={styles.header}>
             <ThemedText type="title" style={styles.title}>{ticket.nombre}</ThemedText>
             <View style={styles.statusAndDuplicateContainer}>
-              <TouchableOpacity
+              {!isEmployee && <TouchableOpacity
                 style={[
                   styles.estadoButton,
                   { backgroundColor: isActive ? theme.success : theme.error }
@@ -168,7 +171,7 @@ export default function TicketDetailScreen() {
                 <ThemedText type="button" style={styles.estadoText}>
                   {ticket.estado}
                 </ThemedText>
-              </TouchableOpacity>
+              </TouchableOpacity>}
               {isExhausted && (
                 <View style={[styles.estadoButton, { backgroundColor: '#FF9500' }]}>
                   <ThemedText type="button" style={styles.estadoText}>

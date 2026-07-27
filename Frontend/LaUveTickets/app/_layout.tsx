@@ -2,9 +2,13 @@ import { Redirect, Stack, usePathname } from 'expo-router';
 import React from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
+import {
+  FirebaseConfigProvider,
+  useFirebaseConfig,
+} from '../contexts/FirebaseConfigContext';
 
 function RootLayoutNav() {
-  const { user, loading } = useAuth();
+  const { user, role, loading } = useAuth();
   const pathname = usePathname();
 
   // Si está cargando, no mostrar nada
@@ -13,8 +17,21 @@ function RootLayoutNav() {
   }
 
   // Si no hay usuario y no estamos en login, redirigir al login
-  if (!user && pathname !== '/login') {
+  if (
+    !user
+    && pathname !== '/login'
+    && pathname !== '/registro-admin'
+  ) {
     return <Redirect href="/login" />;
+  }
+
+  if (
+    user
+    && role === 'EMPLEADO'
+    && pathname !== '/tickets'
+    && !pathname.startsWith('/tickets/')
+  ) {
+    return <Redirect href="/tickets" />;
   }
 
   return (
@@ -29,6 +46,7 @@ function RootLayoutNav() {
     >
       {!user ? (
         // Rutas públicas
+        <>
         <Stack.Screen 
           name="login" 
           options={{
@@ -37,6 +55,11 @@ function RootLayoutNav() {
             gestureEnabled: false,
           }}
         />
+        <Stack.Screen
+          name="registro-admin"
+          options={{ headerShown: false, gestureEnabled: true }}
+        />
+        </>
       ) : (
         // Rutas protegidas
         <>
@@ -53,6 +76,7 @@ function RootLayoutNav() {
           <Stack.Screen name="ferias" />
           <Stack.Screen name="graficos-tickets" />
           <Stack.Screen name="graficos-ferias" />
+          <Stack.Screen name="usuarios" />
         </>
       )}
     </Stack>
@@ -61,10 +85,38 @@ function RootLayoutNav() {
 
 export default function RootLayout() {
   return (
-    <AuthProvider>
+    <FirebaseConfigProvider>
       <SafeAreaProvider>
-        <RootLayoutNav />
+        <FirebaseConfiguredApp />
       </SafeAreaProvider>
+    </FirebaseConfigProvider>
+  );
+}
+
+function FirebaseConfiguredApp() {
+  const { configured, loading } = useFirebaseConfig();
+  const pathname = usePathname();
+
+  if (loading) return null;
+
+  if (!configured) {
+    if (pathname !== '/configuracion-firebase') {
+      return <Redirect href={'/configuracion-firebase' as any} />;
+    }
+
+    return (
+      <Stack screenOptions={{ headerShown: false, animation: 'fade' }}>
+        <Stack.Screen
+          name="configuracion-firebase"
+          options={{ gestureEnabled: false }}
+        />
+      </Stack>
+    );
+  }
+
+  return (
+    <AuthProvider>
+      <RootLayoutNav />
     </AuthProvider>
   );
 }
