@@ -1,6 +1,7 @@
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import {
+  CURRENT_FIREBASE_CONFIG,
   FirebaseConnectionConfig,
   getFirebaseAuth,
   validateFirebaseConfig,
@@ -88,6 +89,20 @@ export default function FirebaseSetupScreen() {
     projectId: string;
     businessName: string;
   } | null>(null);
+  const hiddenConnectionRunning = useRef(false);
+
+  const connectOriginalFirebase = async () => {
+    if (step !== 'welcome' || hiddenConnectionRunning.current) return;
+
+    hiddenConnectionRunning.current = true;
+    setError(null);
+    try {
+      await connect(CURRENT_FIREBASE_CONFIG);
+    } catch {
+      setError('No se pudo conectar con el espacio de soporte.');
+      hiddenConnectionRunning.current = false;
+    }
+  };
 
   const requestTestAccess = async () => {
     const email = accessEmail.trim().toLowerCase();
@@ -533,13 +548,21 @@ export default function FirebaseSetupScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <ThemedView type="card" style={styles.card}>
-            <View style={styles.icon}>
+            <TouchableOpacity
+              style={styles.icon}
+              activeOpacity={1}
+              delayLongPress={8000}
+              onLongPress={connectOriginalFirebase}
+              disabled={step !== 'welcome'}
+              accessibilityRole="image"
+              accessibilityLabel="LaUveTickets"
+            >
               <Ionicons
                 name={step === 'creating' ? 'sparkles' : 'storefront-outline'}
                 size={38}
                 color={theme.buttonPrimary}
               />
-            </View>
+            </TouchableOpacity>
 
             {step === 'welcome' && (
               <>

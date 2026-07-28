@@ -1,10 +1,12 @@
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { useTheme } from '@/hooks/useThemeColor';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Keyboard, Platform, StyleSheet, TextInput, TouchableOpacity, TouchableWithoutFeedback, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Alert, Keyboard, Modal, Platform, StyleSheet, TextInput, TouchableOpacity, TouchableWithoutFeedback, useWindowDimensions, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../contexts/AuthContext';
 import { useFirebaseConfig } from '../contexts/FirebaseConfigContext';
 
@@ -13,17 +15,24 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [credentialError, setCredentialError] = useState<string | null>(null);
   const [inputErrors, setInputErrors] = useState<{ email?: boolean; password?: boolean }>({});
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const [connectionMenuVisible, setConnectionMenuVisible] = useState(false);
   const { login } = useAuth();
   const { config, disconnect } = useFirebaseConfig();
   const router = useRouter();
   const theme = useTheme();
   const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
 
   const passwordInputRef = useRef<TextInput>(null);
 
   useEffect(() => {
+    AsyncStorage.getItem('@lauvetickets/last-login-email').then(storedEmail => {
+      if (storedEmail) setEmail(storedEmail);
+    });
+
     if (Platform.OS === 'web') {
       const storedError = localStorage.getItem('showLoginError');
       if (storedError === 'invalid-credentials') {
@@ -35,6 +44,7 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     setLoginError(null);
+    setCredentialError(null);
     setInputErrors({});
 
     const errors: { email?: boolean; password?: boolean } = {};
@@ -49,9 +59,36 @@ export default function LoginScreen() {
 
     try {
       setLoading(true);
+      await AsyncStorage.setItem(
+        '@lauvetickets/last-login-email',
+        email.trim().toLowerCase(),
+      );
       await login(email, password);
       router.replace('/AppTabs');
     } catch (error: any) {
+      const code = error?.code;
+      const invalidCredentials = [
+        'auth/invalid-credential',
+        'auth/invalid-email',
+        'auth/user-not-found',
+        'auth/wrong-password',
+      ].includes(code);
+
+      setLoginError(
+        invalidCredentials
+          ? 'El correo o la contraseña no son correctos.'
+          : code === 'auth/too-many-requests'
+            ? 'Demasiados intentos. Espera unos minutos y vuelve a probar.'
+            : 'No se pudo iniciar sesión. Comprueba tu conexión e inténtalo de nuevo.',
+      );
+      setInputErrors({ password: true });
+      setCredentialError('El usuario o la contraseña no son correctos.');
+      if (invalidCredentials) {
+        setPassword('');
+        requestAnimationFrame(() => passwordInputRef.current?.focus());
+      }
+      return;
+      /*
       // console.error("Login failed:", error);
       if (Platform.OS === 'web') {
         if (error && error.code === 'auth/invalid-email') {
@@ -64,6 +101,7 @@ export default function LoginScreen() {
         Alert.alert('Error', 'Credenciales inválidas');
         setLoginError(null);
       }
+      */
     } finally {
       setLoading(false);
     }
@@ -113,6 +151,7 @@ export default function LoginScreen() {
     },
     inputErrorBorder: {
       borderColor: theme.error,
+      borderWidth: 2,
     },
     button: {
       padding: 15,
@@ -131,7 +170,7 @@ export default function LoginScreen() {
     },
     connectionButton: {
       position: 'absolute',
-      top: Platform.OS === 'ios' ? 18 : 12,
+      top: insets.top + 10,
       left: 14,
       zIndex: 10,
       width: 44,
@@ -148,6 +187,32 @@ export default function LoginScreen() {
       marginTop: -20,
       marginBottom: 22,
     },
+    connectionOverlay: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 24,
+      backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    },
+    connectionCard: {
+      width: '100%',
+      maxWidth: 420,
+      padding: 22,
+      gap: 14,
+      borderRadius: 16,
+    },
+    connectionActions: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      gap: 10,
+    },
+    connectionAction: {
+      minHeight: 44,
+      paddingHorizontal: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 10,
+    },
   });
 
   return (
@@ -155,20 +220,8 @@ export default function LoginScreen() {
       <View style={[styles.container, { backgroundColor: theme.background }]}>
         <TouchableOpacity
           style={styles.connectionButton}
-          onPress={() =>
-            Alert.alert(
-              'Proyecto Firebase',
-              `Conectado a: ${config?.projectId ?? 'desconocido'}`,
-              [
-                { text: 'Cancelar', style: 'cancel' },
-                {
-                  text: 'Cambiar proyecto',
-                  style: 'destructive',
-                  onPress: disconnect,
-                },
-              ],
-            )
-          }
+          onPress={() => setConnectionMenuVisible(true)}
+          accessibilityLabel="Opciones del proyecto Firebase"
         >
           <Ionicons name="ellipsis-horizontal" size={24} color={theme.text} />
         </TouchableOpacity>
@@ -193,14 +246,25 @@ export default function LoginScreen() {
             />
           </View>
 
-          <View style={[styles.inputContainer, inputErrors.password && styles.inputErrorBorder]}>
+          <View
+            style={[
+              styles.inputContainer,
+              (inputErrors.password || credentialError)
+                && styles.inputErrorBorder,
+            ]}
+          >
             <TextInput
               ref={passwordInputRef}
               style={styles.input}
               placeholder="Contraseña"
               placeholderTextColor={theme.placeholder}
               value={password}
-              onChangeText={(text) => { setPassword(text); setLoginError(null); setInputErrors(prev => ({ ...prev, password: false })); }}
+              onChangeText={(text) => {
+                setPassword(text);
+                setLoginError(null);
+                setCredentialError(null);
+                setInputErrors(prev => ({ ...prev, password: false }));
+              }}
               secureTextEntry={!isPasswordVisible}
               onSubmitEditing={handleLogin}
             />
@@ -213,7 +277,13 @@ export default function LoginScreen() {
             </TouchableOpacity>
           </View>
 
-          {loginError && (
+          {credentialError && (
+            <ThemedText type="default" style={styles.errorText}>
+              {credentialError}
+            </ThemedText>
+          )}
+
+          {loginError && !credentialError && (
             <ThemedText type="default" style={styles.errorText}>{loginError}</ThemedText>
           )}
 
@@ -239,6 +309,53 @@ export default function LoginScreen() {
             </ThemedText>
           </TouchableOpacity>
         </ThemedView>
+
+        <Modal
+          visible={connectionMenuVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setConnectionMenuVisible(false)}
+        >
+          <TouchableWithoutFeedback
+            onPress={() => setConnectionMenuVisible(false)}
+          >
+            <View style={styles.connectionOverlay}>
+              <TouchableWithoutFeedback onPress={() => undefined}>
+                <ThemedView type="card" style={styles.connectionCard}>
+                  <ThemedText type="subtitle">Proyecto Firebase</ThemedText>
+                  <ThemedText>
+                    Conectado a: {config?.projectId ?? 'desconocido'}
+                  </ThemedText>
+                  <View style={styles.connectionActions}>
+                    <TouchableOpacity
+                      style={[
+                        styles.connectionAction,
+                        { backgroundColor: theme.inputBackground },
+                      ]}
+                      onPress={() => setConnectionMenuVisible(false)}
+                    >
+                      <ThemedText>Cancelar</ThemedText>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.connectionAction,
+                        { backgroundColor: theme.error },
+                      ]}
+                      onPress={async () => {
+                        setConnectionMenuVisible(false);
+                        await disconnect();
+                      }}
+                    >
+                      <ThemedText type="button" style={{ color: 'white' }}>
+                        Cambiar proyecto
+                      </ThemedText>
+                    </TouchableOpacity>
+                  </View>
+                </ThemedView>
+              </TouchableWithoutFeedback>
+            </View>
+          </TouchableWithoutFeedback>
+        </Modal>
       </View>
     </TouchableWithoutFeedback>
   );

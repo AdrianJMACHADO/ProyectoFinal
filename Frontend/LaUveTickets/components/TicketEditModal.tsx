@@ -6,12 +6,12 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  TouchableWithoutFeedback,
   View,
   useColorScheme
 } from 'react-native';
@@ -195,7 +195,7 @@ export const TicketEditModal: React.FC<TicketEditModalProps> = ({
     }
   };
 
-  const toggleDropdown = (type: 'feria' | 'estado') => {
+  const legacyToggleDropdown = (type: 'feria' | 'estado') => {
     Keyboard.dismiss();
 
     // Cierra el dropdown si ya está abierto para el mismo tipo
@@ -222,17 +222,34 @@ export const TicketEditModal: React.FC<TicketEditModalProps> = ({
     }, 50); // Pequeño retraso para asegurar que el ref está listo
   };
 
+  const toggleDropdown = (type: 'feria' | 'estado') => {
+    Keyboard.dismiss();
+    if (dropdownVisible && currentDropdown === type) {
+      setDropdownVisible(false);
+      setCurrentDropdown(null);
+      return;
+    }
+    setCurrentDropdown(type);
+    setDropdownVisible(true);
+  };
+
   const handleSelectOption = (value: string | number) => {
     if (currentDropdown === 'feria') {
-      setForm((f: Partial<Ticket>) => ({ ...f, idFeria: value !== '' ? Number(value) : null }));
+      setForm((f: Partial<Ticket>) => ({
+        ...f,
+        idFeria: value !== '' ? Number(value) : null,
+      }));
+      setFormErrors(current => ({ ...current, idFeria: '' }));
     } else if (currentDropdown === 'estado') {
       setForm((f: Partial<Ticket>) => ({ ...f, estado: value as 'ACTIVO' | 'INACTIVO' }));
     }
     setDropdownVisible(false);
   };
 
-  const selectedFeriaName = form.idFeria 
-    ? ferias.find((f: Feria) => f.idFeria === form.idFeria)?.nombre 
+  const selectedFeriaName = form.idFeria != null
+    ? ferias.find(
+        (f: Feria) => String(f.idFeria) === String(form.idFeria),
+      )?.nombre || 'Selecciona una Feria'
     : 'Selecciona una Feria';
 
   // Estilos dinámicos
@@ -245,11 +262,11 @@ export const TicketEditModal: React.FC<TicketEditModalProps> = ({
     },
     modalContent: {
       backgroundColor: theme.card,
-      padding: 25,
+      padding: Platform.OS === 'web' ? 18 : 25,
       borderRadius: 12,
       width: '90%',
-      maxWidth: 450,
-      maxHeight: '90%',
+      maxWidth: Platform.OS === 'web' ? 390 : 450,
+      maxHeight: Platform.OS === 'web' ? '90%' : '86%',
       elevation: 8,
       shadowColor: theme.shadow,
       shadowOffset: { width: 0, height: 4 },
@@ -257,30 +274,33 @@ export const TicketEditModal: React.FC<TicketEditModalProps> = ({
       shadowRadius: 6,
     },
     modalTitle: {
-      fontSize: 22,
+      fontSize: Platform.OS === 'web' ? 20 : 22,
       fontWeight: 'bold',
-      marginBottom: 20,
+      marginBottom: Platform.OS === 'web' ? 12 : 20,
       textAlign: 'center',
       color: theme.text,
     },
     scrollContainer: {
-      flexGrow: 1,
+      paddingBottom: 4,
+    },
+    formScroll: {
+      flexShrink: 1,
     },
     inputGroup: {
-      marginBottom: 18,
+      marginBottom: Platform.OS === 'web' ? 10 : 18,
     },
     label: {
-      fontSize: 16,
+      fontSize: Platform.OS === 'web' ? 14 : 16,
       fontWeight: '600',
-      marginBottom: 8,
+      marginBottom: Platform.OS === 'web' ? 5 : 8,
       color: theme.text,
     },
     input: {
       borderWidth: 1,
       borderColor: theme.border,
       borderRadius: 8,
-      padding: 14,
-      fontSize: 16,
+      padding: Platform.OS === 'web' ? 10 : 14,
+      fontSize: Platform.OS === 'web' ? 14 : 16,
       backgroundColor: theme.inputBackground,
       color: theme.text,
     },
@@ -302,7 +322,7 @@ export const TicketEditModal: React.FC<TicketEditModalProps> = ({
     modalButtons: {
       flexDirection: 'row',
       justifyContent: 'space-between',
-      marginTop: 25,
+      marginTop: Platform.OS === 'web' ? 14 : 25,
       gap: 12,
     },
     saveErrorText: {
@@ -314,7 +334,7 @@ export const TicketEditModal: React.FC<TicketEditModalProps> = ({
     },
     button: {
       flex: 1,
-      padding: 16,
+      padding: Platform.OS === 'web' ? 12 : 16,
       borderRadius: 8,
       alignItems: 'center',
       justifyContent: 'center',
@@ -390,6 +410,15 @@ export const TicketEditModal: React.FC<TicketEditModalProps> = ({
       fontWeight: 'bold',
       color: theme.buttonPrimary,
     },
+    inlineDropdown: {
+      backgroundColor: theme.dropdownBackground,
+      borderWidth: 1,
+      borderColor: theme.dropdownBorder,
+      borderRadius: 8,
+      marginTop: 6,
+      maxHeight: 220,
+      overflow: 'hidden',
+    },
     sectionDivider: {
       height: 1,
       backgroundColor: theme.border,
@@ -403,11 +432,11 @@ export const TicketEditModal: React.FC<TicketEditModalProps> = ({
   return (
     <Modal
       visible={isVisible}
-      animationType="slide"
+      animationType="fade"
       transparent={true}
       onRequestClose={onClose}
     >
-      <TouchableWithoutFeedback onPress={() => {
+      <Pressable style={styles.modalOverlay} onPress={() => {
         setDropdownVisible(false);
         if (Platform.OS === 'web') {
           onClose();
@@ -418,16 +447,17 @@ export const TicketEditModal: React.FC<TicketEditModalProps> = ({
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
         >
-          {dropdownVisible && (
-            <TouchableWithoutFeedback onPress={() => setDropdownVisible(false)}>
-              <View style={StyleSheet.absoluteFillObject} />
-            </TouchableWithoutFeedback>
-          )}
-
-          <View style={styles.modalContent}>
+          <Pressable
+            style={styles.modalContent}
+            onPress={event => event.stopPropagation()}
+          >
             <Text style={styles.modalTitle}>{isCreating ? 'Crear Ticket' : 'Editar Ticket'}</Text>
 
-            <ScrollView contentContainerStyle={styles.scrollContainer}>
+            <ScrollView
+              style={styles.formScroll}
+              contentContainerStyle={styles.scrollContainer}
+              keyboardShouldPersistTaps="handled"
+            >
               {isCreating && (
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>Feria</Text>
@@ -449,6 +479,52 @@ export const TicketEditModal: React.FC<TicketEditModalProps> = ({
                       style={styles.icon}
                     />
                   </TouchableOpacity>
+                  {false && dropdownVisible && currentDropdown === 'feria' && (
+                    <View style={styles.inlineDropdown}>
+                      <ScrollView
+                        nestedScrollEnabled
+                        keyboardShouldPersistTaps="handled"
+                      >
+                        <TouchableOpacity
+                          style={[
+                            styles.dropdownItem,
+                            !form.idFeria && styles.dropdownItemSelected,
+                          ]}
+                          onPress={() => handleSelectOption('')}
+                        >
+                          <Text
+                            style={[
+                              styles.dropdownItemText,
+                              !form.idFeria && styles.dropdownItemSelectedText,
+                            ]}
+                          >
+                            Selecciona una Feria
+                          </Text>
+                        </TouchableOpacity>
+                        {ferias.map(feria => (
+                          <TouchableOpacity
+                            key={feria.idFeria}
+                            style={[
+                              styles.dropdownItem,
+                              form.idFeria === feria.idFeria
+                                && styles.dropdownItemSelected,
+                            ]}
+                            onPress={() => handleSelectOption(feria.idFeria)}
+                          >
+                            <Text
+                              style={[
+                                styles.dropdownItemText,
+                                form.idFeria === feria.idFeria
+                                  && styles.dropdownItemSelectedText,
+                              ]}
+                            >
+                              {feria.nombre}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  )}
                   {formErrors.idFeria && <Text style={styles.errorText}>{formErrors.idFeria}</Text>}
                 </View>
               )}
@@ -573,6 +649,31 @@ export const TicketEditModal: React.FC<TicketEditModalProps> = ({
                         style={styles.icon}
                       />
                     </TouchableOpacity>
+                    {false && dropdownVisible && currentDropdown === 'estado' && (
+                      <View style={styles.inlineDropdown}>
+                        {(['ACTIVO', 'INACTIVO'] as const).map(estado => (
+                          <TouchableOpacity
+                            key={estado}
+                            style={[
+                              styles.dropdownItem,
+                              form.estado === estado
+                                && styles.dropdownItemSelected,
+                            ]}
+                            onPress={() => handleSelectOption(estado)}
+                          >
+                            <Text
+                              style={[
+                                styles.dropdownItemText,
+                                form.estado === estado
+                                  && styles.dropdownItemSelectedText,
+                              ]}
+                            >
+                              {estado}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    )}
                   </View>
                 </>
               )}
@@ -602,17 +703,20 @@ export const TicketEditModal: React.FC<TicketEditModalProps> = ({
                 </>
               )}
             </View>
-          </View>
+          </Pressable>
 
-          {dropdownVisible && (
-            <View style={[
+          {false && dropdownVisible && (
+            <Pressable
+              onPress={event => event.stopPropagation()}
+              style={[
               styles.dropdownContainer,
               {
                 top: dropdownPosition.top,
                 left: dropdownPosition.left,
                 width: dropdownPosition.width
               }
-            ]}>
+              ]}
+            >
               <ScrollView>
                 {currentDropdown === 'feria' && (
                   <>
@@ -685,10 +789,109 @@ export const TicketEditModal: React.FC<TicketEditModalProps> = ({
                   </>
                 )}
               </ScrollView>
-            </View>
+            </Pressable>
           )}
         </KeyboardAvoidingView>
-      </TouchableWithoutFeedback>
+      </Pressable>
+
+      <Modal
+        visible={dropdownVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setDropdownVisible(false);
+          setCurrentDropdown(null);
+        }}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => {
+            setDropdownVisible(false);
+            setCurrentDropdown(null);
+          }}
+        >
+          <Pressable
+            style={[
+              styles.modalContent,
+              { maxHeight: '65%', padding: 16 },
+            ]}
+            onPress={event => event.stopPropagation()}
+          >
+            <Text style={[styles.modalTitle, { marginBottom: 12 }]}>
+              {currentDropdown === 'feria'
+                ? 'Seleccionar feria'
+                : 'Seleccionar estado'}
+            </Text>
+            <ScrollView keyboardShouldPersistTaps="always">
+              {currentDropdown === 'feria' && (
+                <>
+                  <TouchableOpacity
+                    style={[
+                      styles.dropdownItem,
+                      form.idFeria == null && styles.dropdownItemSelected,
+                    ]}
+                    onPress={() => handleSelectOption('')}
+                  >
+                    <Text
+                      style={[
+                        styles.dropdownItemText,
+                        form.idFeria == null
+                          && styles.dropdownItemSelectedText,
+                      ]}
+                    >
+                      Selecciona una Feria
+                    </Text>
+                  </TouchableOpacity>
+                  {ferias.map(feria => {
+                    const selected =
+                      String(form.idFeria) === String(feria.idFeria);
+                    return (
+                      <TouchableOpacity
+                        key={String(feria.idFeria)}
+                        style={[
+                          styles.dropdownItem,
+                          selected && styles.dropdownItemSelected,
+                        ]}
+                        onPress={() => handleSelectOption(feria.idFeria)}
+                      >
+                        <Text
+                          style={[
+                            styles.dropdownItemText,
+                            selected && styles.dropdownItemSelectedText,
+                          ]}
+                        >
+                          {feria.nombre}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </>
+              )}
+              {currentDropdown === 'estado'
+                && (['ACTIVO', 'INACTIVO'] as const).map(estado => (
+                  <TouchableOpacity
+                    key={estado}
+                    style={[
+                      styles.dropdownItem,
+                      form.estado === estado && styles.dropdownItemSelected,
+                    ]}
+                    onPress={() => handleSelectOption(estado)}
+                  >
+                    <Text
+                      style={[
+                        styles.dropdownItemText,
+                        form.estado === estado
+                          && styles.dropdownItemSelectedText,
+                      ]}
+                    >
+                      {estado}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </Modal>
   );
 };

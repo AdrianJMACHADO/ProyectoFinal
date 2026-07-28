@@ -1,4 +1,4 @@
-import { NavigationHeader } from '@/components/NavigationHeader';
+import { NavigationHeaderRegistration } from '@/components/NavigationHeaderRegistration';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { useAuth } from '@/contexts/AuthContext';
@@ -25,7 +25,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const emptyForm: CreateManagedUserInput = {
   nombre: '',
@@ -42,7 +41,11 @@ export default function UsersScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [form, setForm] = useState<CreateManagedUserInput>(emptyForm);
   const [error, setError] = useState<string | null>(null);
-  const insets = useSafeAreaInsets();
+  const [fieldErrors, setFieldErrors] = useState<{
+    nombre?: string;
+    email?: string;
+    password?: string;
+  }>({});
   const theme = useTheme();
 
   const loadUsers = async () => {
@@ -64,6 +67,22 @@ export default function UsersScreen() {
 
   const createUser = async () => {
     setError(null);
+    const validationErrors: typeof fieldErrors = {};
+    if (!form.nombre.trim()) {
+      validationErrors.nombre = 'El nombre es obligatorio.';
+    }
+    if (!form.email.trim()) {
+      validationErrors.email = 'El correo electrónico es obligatorio.';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+      validationErrors.email = 'Escribe un correo electrónico válido.';
+    }
+    if (!form.password) {
+      validationErrors.password = 'La contraseña temporal es obligatoria.';
+    } else if (form.password.length < 8) {
+      validationErrors.password = 'Debe tener al menos 8 caracteres.';
+    }
+    setFieldErrors(validationErrors);
+    if (Object.keys(validationErrors).length > 0) return;
     if (!form.nombre.trim() || !form.email.trim() || form.password.length < 8) {
       setError('Completa los campos y usa una contraseña de al menos 8 caracteres');
       return;
@@ -74,6 +93,7 @@ export default function UsersScreen() {
       await createManagedUser(form);
       setModalVisible(false);
       setForm(emptyForm);
+      setFieldErrors({});
       await loadUsers();
     } catch (createError: any) {
       setError(createError?.message || 'No se pudo crear el usuario');
@@ -181,6 +201,15 @@ export default function UsersScreen() {
       borderRadius: 9,
       paddingHorizontal: 12,
     },
+    inputError: {
+      borderColor: theme.error,
+      borderWidth: 2,
+    },
+    fieldError: {
+      color: theme.error,
+      fontSize: 13,
+      marginTop: -7,
+    },
     roleRow: { flexDirection: 'row', gap: 10 },
     roleButton: {
       flex: 1,
@@ -203,16 +232,18 @@ export default function UsersScreen() {
   });
 
   return (
-    <SafeAreaView
-      style={[styles.container, { paddingTop: insets.top }]}
-    >
-      <NavigationHeader />
+    <SafeAreaView style={styles.container}>
+      <NavigationHeaderRegistration tab="Usuarios" />
       <View style={styles.content}>
         <View style={styles.titleRow}>
           <ThemedText type="title">Usuarios</ThemedText>
           <TouchableOpacity
             style={styles.addButton}
-            onPress={() => setModalVisible(true)}
+            onPress={() => {
+              setError(null);
+              setFieldErrors({});
+              setModalVisible(true);
+            }}
           >
             <Ionicons name="person-add" size={19} color="white" />
             <ThemedText type="button" style={styles.white}>Crear</ThemedText>
@@ -288,29 +319,53 @@ export default function UsersScreen() {
           <ThemedView type="card" style={styles.modalCard}>
             <ThemedText type="subtitle">Crear usuario</ThemedText>
             <TextInput
-              style={styles.input}
+              style={[styles.input, fieldErrors.nombre && styles.inputError]}
               value={form.nombre}
-              onChangeText={nombre => setForm(current => ({ ...current, nombre }))}
+              onChangeText={nombre => {
+                setForm(current => ({ ...current, nombre }));
+                setFieldErrors(current => ({ ...current, nombre: undefined }));
+              }}
               placeholder="Nombre"
               placeholderTextColor={theme.placeholder}
             />
+            {fieldErrors.nombre && (
+              <ThemedText style={styles.fieldError}>
+                {fieldErrors.nombre}
+              </ThemedText>
+            )}
             <TextInput
-              style={styles.input}
+              style={[styles.input, fieldErrors.email && styles.inputError]}
               value={form.email}
-              onChangeText={email => setForm(current => ({ ...current, email }))}
+              onChangeText={email => {
+                setForm(current => ({ ...current, email }));
+                setFieldErrors(current => ({ ...current, email: undefined }));
+              }}
               placeholder="Correo electrónico"
               placeholderTextColor={theme.placeholder}
               autoCapitalize="none"
               keyboardType="email-address"
             />
+            {fieldErrors.email && (
+              <ThemedText style={styles.fieldError}>
+                {fieldErrors.email}
+              </ThemedText>
+            )}
             <TextInput
-              style={styles.input}
+              style={[styles.input, fieldErrors.password && styles.inputError]}
               value={form.password}
-              onChangeText={password => setForm(current => ({ ...current, password }))}
+              onChangeText={password => {
+                setForm(current => ({ ...current, password }));
+                setFieldErrors(current => ({ ...current, password: undefined }));
+              }}
               placeholder="Contraseña temporal"
               placeholderTextColor={theme.placeholder}
               secureTextEntry
             />
+            {fieldErrors.password && (
+              <ThemedText style={styles.fieldError}>
+                {fieldErrors.password}
+              </ThemedText>
+            )}
             <View style={styles.roleRow}>
               {(['EMPLEADO', 'ADMIN'] as const).map(option => (
                 <TouchableOpacity
@@ -335,6 +390,7 @@ export default function UsersScreen() {
                 onPress={() => {
                   setModalVisible(false);
                   setError(null);
+                  setFieldErrors({});
                 }}
                 disabled={saving}
               >

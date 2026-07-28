@@ -154,7 +154,7 @@ export default function TicketDetailScreen() {
   const canIncrement = isActive && !isExhausted;
 
   return (
-    <SafeAreaView style={[styles.container, { paddingTop: insets.top, backgroundColor: theme.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={[styles.container, { backgroundColor: theme.background }]}>
         <NavigationHeader />
         <ThemedView

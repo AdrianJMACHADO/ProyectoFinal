@@ -6,9 +6,8 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, FlatList, Modal, Platform, SafeAreaView, StyleSheet, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { NavigationHeader } from '../components/NavigationHeader';
+import { ActivityIndicator, Alert, Dimensions, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, SafeAreaView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { NavigationHeaderRegistration } from '../components/NavigationHeaderRegistration';
 import { useAuth } from '../contexts/AuthContext';
 import { createFeria, listFerias, updateFeria } from '../services/firestoreData';
 
@@ -39,12 +38,12 @@ const FeriasScreen: React.FC = () => {
   const [selectedYear, setSelectedYear] = useState<string | null>(null);
   const [availableYears, setAvailableYears] = useState<string[]>([]);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [pendingDate, setPendingDate] = useState<Date>(new Date());
   const [error, setError] = useState<string | null>(null);
   const [modalError, setModalError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   
   // Hook para obtener las áreas seguras
-  const insets = useSafeAreaInsets();
 
   // Cargar ferias
   const loadFerias = async () => {
@@ -93,7 +92,9 @@ const FeriasScreen: React.FC = () => {
   // Abrir modal para crear
   const openCreateModal = () => {
     setEditMode(false);
-    setForm({ nombre: '', fecha: '' });
+    const today = new Date();
+    setForm({ nombre: '', fecha: today.toISOString() });
+    setPendingDate(today);
     setFormErrors({});
     setModalError(null);
     setModalVisible(true);
@@ -107,6 +108,22 @@ const FeriasScreen: React.FC = () => {
     setFormErrors({});
     setModalError(null);
     setModalVisible(true);
+  };
+
+  const closeModal = () => {
+    setShowDatePicker(false);
+    setModalVisible(false);
+    setModalError(null);
+  };
+
+  const openDatePicker = () => {
+    setPendingDate(form.fecha ? new Date(form.fecha) : new Date());
+    setShowDatePicker(true);
+  };
+
+  const commitDate = (date: Date) => {
+    setForm((current) => ({ ...current, fecha: date.toISOString() }));
+    setFormErrors((current) => ({ ...current, fecha: undefined }));
   };
 
   // Guardar feria (crear o editar)
@@ -285,12 +302,13 @@ const FeriasScreen: React.FC = () => {
       flex: 1,
       justifyContent: 'center',
       alignItems: 'center',
+      padding: 20,
     },
     modalContent: {
-      width: '90%',
-      maxWidth: 500,
-      borderRadius: 12,
-      padding: 20,
+      width: '100%',
+      maxWidth: 480,
+      borderRadius: 20,
+      padding: 22,
       elevation: 8,
       shadowColor: theme.shadow,
       shadowOffset: { width: 0, height: 4 },
@@ -339,11 +357,37 @@ const FeriasScreen: React.FC = () => {
     buttonText: {
       color: 'white',
     },
+    dateButton: {
+      minHeight: 52,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 0,
+    },
+    datePickerCard: {
+      width: '100%',
+      maxWidth: 420,
+      borderRadius: 20,
+      padding: 20,
+    },
+    datePickerActions: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      gap: 12,
+      marginTop: 12,
+    },
+    datePickerAction: {
+      minWidth: 108,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      borderRadius: 10,
+      alignItems: 'center',
+    },
   });
 
   if (error) {
     return (
-      <SafeAreaView style={[styles.container, { paddingTop: insets.top, backgroundColor: theme.background }]}>
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
         <View style={styles.errorContainer}>
           <Ionicons name="cloud-offline" size={50} color={theme.error} />
           <ThemedText type="subtitle" style={styles.errorTextCentered}>
@@ -361,8 +405,9 @@ const FeriasScreen: React.FC = () => {
   }
 
   return (
-    <SafeAreaView style={[styles.container, { paddingTop: insets.top, backgroundColor: theme.background }]}>
-      <NavigationHeader 
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+      <NavigationHeaderRegistration
+        tab="Ferias"
         availableYears={availableYears}
         selectedYear={selectedYear}
         onYearChange={handleYearChange}
@@ -424,18 +469,22 @@ const FeriasScreen: React.FC = () => {
       {/* Modal de creación/edición */}
       <Modal
         visible={modalVisible}
-        animationType="slide"
+        animationType="fade"
         transparent
-        onRequestClose={() => { setModalVisible(false); setModalError(null); }}
+        statusBarTranslucent
+        presentationStyle="overFullScreen"
+        onRequestClose={closeModal}
       >
-        <TouchableWithoutFeedback onPress={() => {
-          if (Platform.OS !== 'web') {
-            setModalVisible(false);
-            setModalError(null);
-          }
-        }}>
-          <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
-            <ThemedView type="card" style={styles.modalContent}>
+        <Pressable
+          style={[styles.modalOverlay, { backgroundColor: 'rgba(0, 0, 0, 0.62)' }]}
+          onPress={closeModal}
+        >
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={{ width: '100%', alignItems: 'center' }}
+          >
+            <Pressable style={{ width: '100%', alignItems: 'center' }} onPress={(event) => event.stopPropagation()}>
+              <ThemedView type="card" style={styles.modalContent}>
               <ThemedText type="title" style={styles.modalTitle}>
                 {editMode ? 'Editar Feria' : 'Nueva Feria'}
               </ThemedText>
@@ -479,21 +528,45 @@ const FeriasScreen: React.FC = () => {
                       borderColor: formErrors.fecha ? theme.error : theme.border,
                     }}
                   />
+                ) : Platform.OS === 'ios' ? (
+                  <View
+                    style={[
+                      styles.input,
+                      styles.dateButton,
+                      {
+                        backgroundColor: theme.inputBackground,
+                        borderColor: formErrors.fecha ? theme.error : theme.border,
+                      },
+                    ]}
+                  >
+                    <ThemedText>Fecha de la feria</ThemedText>
+                    <DateTimePicker
+                      value={form.fecha ? new Date(form.fecha) : new Date()}
+                      mode="date"
+                      display="compact"
+                      locale="es-ES"
+                      onChange={(_, selectedDate) => {
+                        if (selectedDate) commitDate(selectedDate);
+                      }}
+                    />
+                  </View>
                 ) : (
                   <TouchableOpacity
                     style={[
                       styles.input,
+                      styles.dateButton,
                       {
                         backgroundColor: theme.inputBackground,
                         borderColor: formErrors.fecha ? theme.error : theme.border,
                       }
                     ]}
-                    onPress={() => setShowDatePicker(true)}
+                    onPress={openDatePicker}
                     activeOpacity={0.7}
                   >
                     <ThemedText style={form.fecha ? {} : { color: theme.placeholder }}>
                       {form.fecha ? format(new Date(form.fecha), 'dd/MM/yyyy') : 'Seleccionar fecha'}
                     </ThemedText>
+                    <Ionicons name="calendar-outline" size={22} color={form.fecha ? theme.primary : theme.placeholder} />
                   </TouchableOpacity>
                 )}
               </View>
@@ -515,7 +588,7 @@ const FeriasScreen: React.FC = () => {
                   onPress={async () => {
                     const success = await saveFeria();
                     if (success) {
-                      setModalVisible(false);
+                      closeModal();
                     }
                   }}
                 >
@@ -526,31 +599,32 @@ const FeriasScreen: React.FC = () => {
                 <TouchableOpacity
                   style={[styles.modalButton, { backgroundColor: theme.error }]}
                   onPress={() => {
-                    setModalVisible(false);
-                    setModalError(null);
+                    closeModal();
                   }}
                 >
                   <ThemedText type="button" style={styles.buttonText}>Cancelar</ThemedText>
                 </TouchableOpacity>
               </View>
-            </ThemedView>
-          </View>
-        </TouchableWithoutFeedback>
+              </ThemedView>
+            </Pressable>
+          </KeyboardAvoidingView>
+        </Pressable>
       </Modal>
 
-      {Platform.OS !== 'web' && showDatePicker && (
+      {Platform.OS === 'android' && showDatePicker && (
         <DateTimePicker
-          value={form.fecha ? new Date(form.fecha) : new Date()}
+          value={pendingDate}
           mode="date"
           display="default"
           onChange={(event, selectedDate) => {
             setShowDatePicker(false);
-            if (selectedDate) {
-              setForm((f) => ({ ...f, fecha: selectedDate.toISOString() }));
+            if (event.type !== 'dismissed' && selectedDate) {
+              commitDate(selectedDate);
             }
           }}
         />
       )}
+
     </SafeAreaView>
   );
 };

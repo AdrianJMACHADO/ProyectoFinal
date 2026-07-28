@@ -6,8 +6,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, Platform, SafeAreaView, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { PieChart } from 'react-native-chart-kit';
 import { ProgressBar } from 'react-native-paper';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { NavigationHeader } from '../components/NavigationHeader';
+import { NavigationHeaderRegistration } from '../components/NavigationHeaderRegistration';
 import { listFerias, listTickets } from '../services/firestoreData';
 import { Feria, Ticket } from './tickets';
 
@@ -20,7 +19,6 @@ export default function GraficosTicketsScreen() {
   const [error, setError] = useState<string | null>(null);
 
   // Hook para obtener las áreas seguras y dimensiones
-  const insets = useSafeAreaInsets();
   const screenWidth = Dimensions.get('window').width;
   const isWeb = Platform.OS === 'web';
   const isLargeScreen = screenWidth > 768; // Detectar pantallas grandes
@@ -260,7 +258,7 @@ export default function GraficosTicketsScreen() {
       <SafeAreaView
         style={[
           styles.container,
-          { paddingTop: insets.top, backgroundColor: theme.background },
+          { backgroundColor: theme.background },
         ]}
       >
         <View style={styles.center}>
@@ -275,7 +273,7 @@ export default function GraficosTicketsScreen() {
       <SafeAreaView
         style={[
           styles.container,
-          { paddingTop: insets.top, backgroundColor: theme.background },
+          { backgroundColor: theme.background },
         ]}
       >
         <View style={styles.errorContainer}>
@@ -336,8 +334,9 @@ export default function GraficosTicketsScreen() {
   const barWidth = Math.max(feriaLabelsFiltered.length * 180, screenWidth - 40);
 
   return (
-    <SafeAreaView style={[styles.container, { paddingTop: insets.top, backgroundColor: theme.background }]}>
-      <NavigationHeader
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+      <NavigationHeaderRegistration
+        tab="Uso"
         availableYears={availableYears}
         selectedYear={selectedYear}
         onYearChange={handleYearChange}

@@ -8,8 +8,7 @@ import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, FlatList, Image, Platform, SafeAreaView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { NavigationHeader } from '../components/NavigationHeader';
+import { NavigationHeaderRegistration } from '../components/NavigationHeaderRegistration';
 import { QRScannerModal } from '../components/QRScannerModal';
 import { createTicketPdf, QRGenerator, ticketQrValue } from '../components/QRGenerator';
 import { TicketEditModal } from '../components/TicketEditModal';
@@ -69,7 +68,6 @@ export default function TicketsScreen() {
   const batchQrRefs = useRef<Record<number, any>>({});
 
   // Hook para obtener las áreas seguras
-  const insets = useSafeAreaInsets();
 
   // Nuevos estados para el modal de edición
   const [editModalLoading, setEditModalLoading] = useState(false);
@@ -646,7 +644,7 @@ export default function TicketsScreen() {
   };
 
   if (loading) return (
-    <SafeAreaView style={[styles.container, { paddingTop: insets.top, backgroundColor: theme.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={styles.center}>
         <ActivityIndicator size="large" color={theme.buttonPrimary} />
       </View>
@@ -655,7 +653,7 @@ export default function TicketsScreen() {
 
   if (error) {
     return (
-      <SafeAreaView style={[styles.container, { paddingTop: insets.top, backgroundColor: theme.background }]}>
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
         <View style={styles.errorContainer}>
           <Ionicons name="cloud-offline" size={50} color={theme.error} />
           <ThemedText type="subtitle" style={styles.errorTextCentered}>Error al cargar los tickets: {error}</ThemedText>
@@ -682,8 +680,9 @@ export default function TicketsScreen() {
   });
 
   return (
-    <SafeAreaView style={[styles.container, { paddingTop: insets.top, backgroundColor: theme.background }]}>
-      <NavigationHeader
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+      <NavigationHeaderRegistration
+        tab="Tickets"
         onYearChange={handleYearChange}
         availableYears={availableYears}
         selectedYear={selectedYear}

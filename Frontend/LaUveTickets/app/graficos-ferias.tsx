@@ -7,8 +7,7 @@ import { es } from 'date-fns/locale';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, SafeAreaView, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { PieChart } from 'react-native-chart-kit';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { NavigationHeader } from '../components/NavigationHeader';
+import { NavigationHeaderRegistration } from '../components/NavigationHeaderRegistration';
 import { listFerias } from '../services/firestoreData';
 import { Feria } from './tickets';
 
@@ -20,7 +19,6 @@ export default function GraficosFeriasScreen() {
   const [error, setError] = useState<string | null>(null);
 
   // Hook para obtener las áreas seguras
-  const insets = useSafeAreaInsets();
   const theme = useTheme();
   const screenWidth = Dimensions.get('window').width;
   const isLargeScreen = screenWidth > 768;
@@ -166,7 +164,7 @@ export default function GraficosFeriasScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.container, { paddingTop: insets.top, backgroundColor: theme.background }]}>
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
         <View style={styles.center}>
           <ActivityIndicator size="large" color={theme.buttonPrimary} />
         </View>
@@ -176,7 +174,7 @@ export default function GraficosFeriasScreen() {
 
   if (error) {
     return (
-      <SafeAreaView style={[styles.container, { paddingTop: insets.top, backgroundColor: theme.background }]}>
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
         <View style={styles.errorContainer}>
           <Ionicons name="cloud-offline" size={50} color={theme.error} />
           <ThemedText style={styles.errorTextCentered}>Error al cargar los datos: {error}</ThemedText>
@@ -214,8 +212,9 @@ export default function GraficosFeriasScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { paddingTop: insets.top, backgroundColor: theme.background }]}>
-      <NavigationHeader
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+      <NavigationHeaderRegistration
+        tab="FeriasStats"
         availableYears={availableYears}
         selectedYear={selectedYear}
         onYearChange={handleYearChange}

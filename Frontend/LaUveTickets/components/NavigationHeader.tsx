@@ -2,6 +2,7 @@ import { useTheme } from '@/hooks/useThemeColor';
 import { Ionicons } from '@expo/vector-icons';
 import { usePathname, useRouter } from 'expo-router';
 import React, { useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Dimensions,
   Modal,
@@ -33,6 +34,7 @@ export function NavigationHeader({
   const screenWidth = Dimensions.get('window').width;
   const isSmallScreen = screenWidth < 600;
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
 
   const handleLogout = async () => {
     await logout();
@@ -99,9 +101,11 @@ export function NavigationHeader({
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      padding: 10,
+      paddingHorizontal: 10,
+      paddingBottom: 10,
+      paddingTop: insets.top + 10,
       borderBottomWidth: 1,
-      minHeight: 60,
+      minHeight: 60 + insets.top,
     },
     navButtons: {
       flexDirection: 'row',
