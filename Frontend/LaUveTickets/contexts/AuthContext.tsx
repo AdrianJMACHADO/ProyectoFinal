@@ -1,8 +1,15 @@
-import { User, onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import {
+  User,
+  onAuthStateChanged,
+  sendPasswordResetEmail,
+  signInWithEmailAndPassword,
+  signOut,
+} from 'firebase/auth';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { getFirebaseAuth } from '../config/firebase';
 import {
   registerInitialOwner,
+  createInitialOwnerProfile,
   getUserProfile,
   UserProfile,
   UserRole,
@@ -17,6 +24,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [profileError, setProfileError] = useState<string | null>(null);
+  const creatingOwnerRef = useRef(false);
 
   useEffect(() => {
     const auth = getFirebaseAuth();
@@ -32,9 +40,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       try {
-        setProfile(await getUserProfile(user));
+        const existingProfile = await getUserProfile(user);
+        if (existingProfile) {
+          setProfile(existingProfile);
+        } else {
+          setProfile(
+            await createInitialOwnerProfile(
+              user,
+              user.displayName || user.email || 'Propietario',
+            ),
+          );
+        }
       } catch (error) {
-        setProfileError((error as Error).message);
+        if (creatingOwnerRef.current) {
+          setLoading(false);
+          return;
+        }
+        try {
+          // Recupera proyectos cuyo primer perfil no llegó a crearse por las
+          // reglas iniciales. El propio ruleset garantiza que solo el primer
+          // usuario autenticado puede convertirse en propietario.
+          const recoveredProfile = await createInitialOwnerProfile(
+            user,
+            user.displayName || user.email || 'Propietario',
+          );
+          setProfile(recoveredProfile);
+        } catch (recoveryError) {
+          setProfileError((recoveryError as Error).message);
+        }
       } finally {
         setLoading(false);
       }
@@ -80,13 +113,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   ) => {
     setLoading(true);
     setProfileError(null);
+    creatingOwnerRef.current = true;
     try {
       const result = await registerInitialOwner(email, password, nombre);
       setUser(result.user);
       setProfile(result.profile);
     } finally {
+      creatingOwnerRef.current = false;
       setLoading(false);
     }
+  };
+
+  const recoverPassword = async (email: string) => {
+    await sendPasswordResetEmail(getFirebaseAuth(), email.trim());
   };
 
   return (
@@ -99,6 +138,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         loading,
         login,
         createOwner,
+        recoverPassword,
         logout,
       }}
     >
@@ -129,5 +169,6 @@ interface AuthContextType {
     email: string,
     password: string,
   ) => Promise<void>;
+  recoverPassword: (email: string) => Promise<void>;
   logout: () => Promise<void>;
 }

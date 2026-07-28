@@ -13,13 +13,70 @@ interface QRGeneratorProps {
   isVisible: boolean;
   onClose: () => void;
   ticketId: number;
+  qrToken: string;
   nombre: string;
   tipo: string;
   cantidadInicial: number;
+  projectId: string;
 }
 
-export const QRGenerator: React.FC<QRGeneratorProps> = ({ isVisible, onClose, ticketId, nombre, tipo, cantidadInicial }) => {
-  const qrValue = `lauvetickets://tickets/${ticketId}`;
+export const ticketQrValue = (
+  projectId: string,
+  ticketId: number,
+  qrToken: string,
+) =>
+  `lauvetickets://projects/${encodeURIComponent(projectId)}/tickets/${ticketId}/access/${qrToken}`;
+
+const escapeHtml = (value: string) =>
+  value.replace(/[&<>"']/g, character => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;',
+  })[character]!);
+
+export const createTicketPdf = async ({
+  nombre,
+  tipo,
+  cantidadInicial,
+  qrCodeBase64,
+}: {
+  nombre: string;
+  tipo: string;
+  cantidadInicial: number;
+  qrCodeBase64: string;
+}) => {
+  const htmlContent = `
+    <html>
+      <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <style>
+          body { font-family: Arial, sans-serif; text-align: center; padding: 20px; }
+          h1 { color: #000; font-size: 36px; margin-bottom: 5px; }
+          .label { font-size: 18px; font-weight: bold; margin: 15px 0 5px; }
+          .value { font-size: 18px; margin-bottom: 10px; }
+          .qrContainer { margin-top: 30px; display: flex; justify-content: center; }
+          img { width: 250px; height: 250px; }
+        </style>
+      </head>
+      <body>
+        <h1>LA UVE</h1>
+        <p class="label">Nombre:</p>
+        <p class="value">${escapeHtml(nombre)}</p>
+        <p class="label">Tipo:</p>
+        <p class="value">${escapeHtml(tipo)}</p>
+        <p class="label">Cantidad Inicial:</p>
+        <p class="value">${cantidadInicial}</p>
+        <div class="qrContainer"><img src="${qrCodeBase64}" /></div>
+      </body>
+    </html>
+  `;
+  return (await Print.printToFileAsync({ html: htmlContent })).uri;
+};
+
+export const QRGenerator: React.FC<QRGeneratorProps> = ({ isVisible, onClose, ticketId, qrToken, nombre, tipo, cantidadInicial, projectId }) => {
+  const qrValue = ticketQrValue(projectId, ticketId, qrToken);
   const qrCodeRef = useRef<any>(null);
   const [isSharing, setIsSharing] = useState(false);
 
@@ -48,59 +105,12 @@ export const QRGenerator: React.FC<QRGeneratorProps> = ({ isVisible, onClose, ti
     try {
       const qrCodeBase64 = await getBase64QR();
 
-      const htmlContent = `
-        <html>
-          <head>
-            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
-            <style>
-              body {
-                font-family: Arial, sans-serif;
-                text-align: center;
-                padding: 20px;
-              }
-              h1 {
-                color: #000;
-                font-size: 36px;
-                margin-bottom: 5px;
-              }
-              .label {
-                font-size: 18px;
-                font-weight: bold;
-                margin-top: 15px;
-                margin-bottom: 5px;
-              }
-              .value {
-                font-size: 18px;
-                margin-bottom: 10px;
-              }
-              .qrContainer {
-                margin-top: 30px;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-              }
-              img {
-                width: 250px;
-                height: 250px;
-              }
-            </style>
-          </head>
-          <body>
-            <h1>LA UVE</h1>
-            <p class="label">Nombre:</p>
-            <p class="value">${nombre}</p>
-            <p class="label">Tipo:</p>
-            <p class="value">${tipo}</p>
-            <p class="label">Cantidad Inicial:</p>
-            <p class="value">${cantidadInicial}</p>
-            <div class="qrContainer">
-              <img src="${qrCodeBase64}" style="display: block; margin: 0 auto;" />
-            </div>
-          </body>
-        </html>
-      `;
-
-      const { uri } = await Print.printToFileAsync({ html: htmlContent });
+      const uri = await createTicketPdf({
+        nombre,
+        tipo,
+        cantidadInicial,
+        qrCodeBase64,
+      });
 
       if (Platform.OS === 'web') {
         // Intento de descarga directa en web

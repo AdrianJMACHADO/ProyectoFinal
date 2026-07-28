@@ -2,7 +2,7 @@
   "expo": {
     "name": "LaUveTickets",
     "slug": "LaUveTickets",
-    "version": "1.0.0",
+    "version": "1.0.14",
     "orientation": "portrait",
     "icon": "./assets/images/v.png",
     "userInterfaceStyle": "automatic",
@@ -45,13 +45,16 @@
           "cameraPermission": "LaUveTickets necesita la cámara para escanear los códigos QR de los tickets.",
           "barcodeScannerEnabled": true
         }
-      ]
+      ],
+      "expo-web-browser",
+      "@react-native-google-signin/google-signin"
     ],
     "experiments": {
       "typedRoutes": true
     },
     "scheme": "lauvetickets",
     "extra": {
+      "googleAndroidClientId": "524218142086-3kiuqk2pv811rrbtfvrcvbvt8cfiev44.apps.googleusercontent.com",
       "router": {},
       "eas": {
         "projectId": "af84d2a0-4a11-4494-a698-6b23bab417bd"

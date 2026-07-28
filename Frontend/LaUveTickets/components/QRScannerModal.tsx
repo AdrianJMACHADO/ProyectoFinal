@@ -19,21 +19,35 @@ import { ThemedText } from './ThemedText';
 interface QRScannerModalProps {
   visible: boolean;
   onClose: () => void;
-  onTicketScanned: (ticketId: number) => void;
+  onTicketScanned: (ticketId: number, qrToken: string) => Promise<boolean>;
+  projectId: string;
 }
 
-const parseTicketId = (value: string): number | null => {
-  const match = value.trim().match(/^lauvetickets:\/\/tickets\/(\d+)$/i);
-  if (!match) return null;
+type SecureTicketQr = { ticketId: number; qrToken: string };
 
-  const ticketId = Number(match[1]);
-  return Number.isSafeInteger(ticketId) && ticketId > 0 ? ticketId : null;
+const parseTicketQr = (
+  value: string,
+  expectedProjectId: string,
+): SecureTicketQr | null => {
+  const match = value
+    .trim()
+    .match(
+      /^lauvetickets:\/\/projects\/([^/]+)\/tickets\/(\d+)\/access\/([a-f0-9]{64})$/i,
+    );
+  if (!match) return null;
+  if (decodeURIComponent(match[1]) !== expectedProjectId) return null;
+
+  const ticketId = Number(match[2]);
+  return Number.isSafeInteger(ticketId) && ticketId > 0
+    ? { ticketId, qrToken: match[3].toLowerCase() }
+    : null;
 };
 
 export function QRScannerModal({
   visible,
   onClose,
   onTicketScanned,
+  projectId,
 }: QRScannerModalProps) {
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
@@ -48,13 +62,13 @@ export function QRScannerModal({
     }
   }, [visible]);
 
-  const handleBarcodeScanned = ({ data }: BarcodeScanningResult) => {
+  const handleBarcodeScanned = async ({ data }: BarcodeScanningResult) => {
     if (scanned) return;
 
     setScanned(true);
-    const ticketId = parseTicketId(data);
-    if (!ticketId) {
-      setScanError('Este código QR no pertenece a LaUveTickets');
+    const credential = parseTicketQr(data, projectId);
+    if (!credential) {
+      setScanError('QR no válido, antiguo o de otro negocio');
       setTimeout(() => {
         setScanned(false);
         setScanError(null);
@@ -62,8 +76,20 @@ export function QRScannerModal({
       return;
     }
 
-    onClose();
-    onTicketScanned(ticketId);
+    const valid = await onTicketScanned(
+      credential.ticketId,
+      credential.qrToken,
+    );
+    if (valid) {
+      onClose();
+      return;
+    }
+
+    setScanError('El código del ticket no es válido o ha sido modificado');
+    setTimeout(() => {
+      setScanned(false);
+      setScanError(null);
+    }, 2000);
   };
 
   const renderPermissionContent = () => {

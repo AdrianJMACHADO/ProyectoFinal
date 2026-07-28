@@ -35,7 +35,7 @@ const emptyForm: CreateManagedUserInput = {
 };
 
 export default function UsersScreen() {
-  const { role } = useAuth();
+  const { role, user } = useAuth();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -124,6 +124,20 @@ export default function UsersScreen() {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
+    },
+    identityRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      flexWrap: 'wrap',
+    },
+    youBadge: {
+      paddingHorizontal: 9,
+      paddingVertical: 3,
+      borderRadius: 10,
+      backgroundColor: `${theme.buttonPrimary}25`,
+      borderWidth: 1,
+      borderColor: theme.buttonPrimary,
     },
     email: { opacity: 0.7, marginTop: 3 },
     badge: {
@@ -215,7 +229,22 @@ export default function UsersScreen() {
               <ThemedView type="card" style={styles.card}>
                 <View style={styles.userHeader}>
                   <View style={{ flex: 1 }}>
-                    <ThemedText type="subtitle">{item.nombre}</ThemedText>
+                    <View style={styles.identityRow}>
+                      <ThemedText type="subtitle">{item.nombre}</ThemedText>
+                      {item.uid === user?.uid && (
+                        <View style={styles.youBadge}>
+                          <ThemedText
+                            style={{
+                              color: theme.buttonPrimary,
+                              fontWeight: '800',
+                              fontSize: 11,
+                            }}
+                          >
+                            TÚ
+                          </ThemedText>
+                        </View>
+                      )}
+                    </View>
                     <ThemedText style={styles.email}>{item.email}</ThemedText>
                   </View>
                   <View

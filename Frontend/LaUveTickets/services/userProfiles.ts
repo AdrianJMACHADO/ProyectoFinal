@@ -11,10 +11,10 @@ import {
   collection,
   getDoc,
   getDocs,
-  runTransaction,
   serverTimestamp,
   setDoc,
   updateDoc,
+  writeBatch,
 } from 'firebase/firestore';
 import {
   FirebaseConnectionConfig,
@@ -51,54 +51,36 @@ export const getUserProfile = async (
 export const createInitialOwnerProfile = async (
   user: User,
   nombre: string,
+  nombreNegocio?: string,
 ): Promise<UserProfile> => {
   const db = getFirebaseDb();
   const systemRef = doc(db, 'configuracion', 'system');
   const profileRef = doc(db, 'usuarios', user.uid);
 
-  return runTransaction(db, async transaction => {
-    const [systemSnapshot, profileSnapshot] = await Promise.all([
-      transaction.get(systemRef),
-      transaction.get(profileRef),
-    ]);
+  const profile: UserProfile = {
+    uid: user.uid,
+    email: user.email ?? '',
+    nombre: nombre.trim(),
+    role: 'SUPERADMIN',
+    activo: true,
+  };
+  const batch = writeBatch(db);
 
-    if (systemSnapshot.exists()) {
-      throw new Error('Este proyecto ya tiene un administrador propietario');
-    }
-    if (profileSnapshot.exists()) {
-      return profileSnapshot.data() as UserProfile;
-    }
-
-    const profile: UserProfile = {
-      uid: user.uid,
-      email: user.email ?? '',
-      nombre: nombre.trim(),
-      role: 'SUPERADMIN',
-      activo: true,
-    };
-
-    transaction.set(systemRef, {
-      ownerUid: user.uid,
-      initializedAt: serverTimestamp(),
-      schemaVersion: 1,
-    });
-    transaction.set(profileRef, {
-      ...profile,
-      createdAt: serverTimestamp(),
-    });
-    transaction.set(
-      doc(db, 'counters', 'ferias'),
-      { nextId: 1 },
-      { merge: true },
-    );
-    transaction.set(
-      doc(db, 'counters', 'tickets'),
-      { nextId: 1 },
-      { merge: true },
-    );
-
-    return profile;
+  batch.set(systemRef, {
+    ownerUid: user.uid,
+    nombreNegocio: nombreNegocio?.trim() || null,
+    initializedAt: serverTimestamp(),
+    schemaVersion: 1,
   });
+  batch.set(profileRef, {
+    ...profile,
+    createdAt: serverTimestamp(),
+  });
+  batch.set(doc(db, 'counters', 'ferias'), { nextId: 1 }, { merge: true });
+  batch.set(doc(db, 'counters', 'tickets'), { nextId: 1 }, { merge: true });
+
+  await batch.commit();
+  return profile;
 };
 
 export const registerInitialOwner = async (

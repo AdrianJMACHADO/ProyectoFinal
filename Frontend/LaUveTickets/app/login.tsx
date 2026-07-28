@@ -235,7 +235,7 @@ export default function LoginScreen() {
             disabled={loading}
           >
             <ThemedText style={{ color: theme.buttonPrimary, fontWeight: '600' }}>
-              Configurar el administrador inicial
+              Crear o recuperar superadministrador
             </ThemedText>
           </TouchableOpacity>
         </ThemedView>

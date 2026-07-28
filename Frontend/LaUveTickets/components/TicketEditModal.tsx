@@ -90,6 +90,7 @@ export const TicketEditModal: React.FC<TicketEditModalProps> = ({
   const nombreInputRef = useRef<TextInput>(null);
   const tipoInputRef = useRef<TextInput>(null);
   const cantidadInputRef = useRef<TextInput>(null);
+  const copiasInputRef = useRef<TextInput>(null);
   const usosInputRef = useRef<TextInput>(null);
 
   const [form, setForm] = useState<Partial<Ticket>>({
@@ -100,6 +101,7 @@ export const TicketEditModal: React.FC<TicketEditModalProps> = ({
     cantidad_inicial: ticket?.cantidad_inicial || 0,
     usos: ticket?.usos || 0,
     estado: ticket?.estado || 'ACTIVO',
+    copias: 1,
   });
 
   const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
@@ -114,6 +116,7 @@ export const TicketEditModal: React.FC<TicketEditModalProps> = ({
         cantidad_inicial: ticket.cantidad_inicial === undefined ? 0 : ticket.cantidad_inicial,
         usos: ticket.usos === undefined ? 0 : ticket.usos,
         estado: ticket.estado || 'ACTIVO',
+        copias: 1,
       });
     } else {
       setForm({
@@ -124,6 +127,7 @@ export const TicketEditModal: React.FC<TicketEditModalProps> = ({
         cantidad_inicial: 0,
         usos: 0,
         estado: 'ACTIVO',
+        copias: 1,
       });
     }
     setFormErrors({});
@@ -138,11 +142,18 @@ export const TicketEditModal: React.FC<TicketEditModalProps> = ({
   }, [isVisible]);
 
   const validate = () => {
-    const errors: { nombre?: string; tipo?: string; cantidad_inicial?: string; idFeria?: string; usos?: string } = {};
+    const errors: { nombre?: string; tipo?: string; cantidad_inicial?: string; copias?: string; idFeria?: string; usos?: string } = {};
     if (!form.nombre || !form.nombre.trim()) errors.nombre = 'El nombre es obligatorio';
     if (!form.tipo || !form.tipo.trim()) errors.tipo = 'El tipo es obligatorio';
     if (isCreating && (form.cantidad_inicial === undefined || form.cantidad_inicial === null || form.cantidad_inicial < 0))
       errors.cantidad_inicial = 'La cantidad inicial debe ser un número positivo al crear';
+
+    if (
+      isCreating
+      && (!Number.isInteger(form.copias) || (form.copias ?? 0) < 1 || (form.copias ?? 0) > 100)
+    ) {
+      errors.copias = 'La cantidad de tickets debe estar entre 1 y 100';
+    }
 
     if (isCreating && (form.idFeria === undefined || form.idFeria === null)) {
       errors.idFeria = 'Debe seleccionar una feria';
@@ -282,6 +293,11 @@ export const TicketEditModal: React.FC<TicketEditModalProps> = ({
       fontSize: 14,
       marginTop: 6,
       fontWeight: '500',
+    },
+    helperText: {
+      color: theme.sectionHeader,
+      fontSize: 12,
+      marginTop: 5,
     },
     modalButtons: {
       flexDirection: 'row',
@@ -484,10 +500,10 @@ export const TicketEditModal: React.FC<TicketEditModalProps> = ({
                   value={form.cantidad_inicial != null ? form.cantidad_inicial.toString() : ''}
                   onChangeText={(text) => setForm(f => ({ ...f, cantidad_inicial: parseInt(text) || 0 }))}
                   editable={isCreating}
-                  returnKeyType={isCreating ? "done" : "next"}
+                  returnKeyType="next"
                   onSubmitEditing={() => {
                     if (isCreating) {
-                      Keyboard.dismiss();
+                      copiasInputRef.current?.focus();
                     } else {
                       usosInputRef.current?.focus();
                     }
@@ -495,6 +511,32 @@ export const TicketEditModal: React.FC<TicketEditModalProps> = ({
                 />
                 {formErrors.cantidad_inicial && <Text style={styles.errorText}>{formErrors.cantidad_inicial}</Text>}
               </View>
+
+              {isCreating && (
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Cantidad de tickets</Text>
+                  <TextInput
+                    ref={copiasInputRef}
+                    style={[styles.input, formErrors.copias && styles.inputError]}
+                    placeholder="Ej. 6 tickets iguales"
+                    placeholderTextColor={theme.placeholder}
+                    keyboardType="number-pad"
+                    value={(form.copias ?? 1).toString()}
+                    onChangeText={(text) =>
+                      setForm(current => ({
+                        ...current,
+                        copias: Number.parseInt(text, 10) || 0,
+                      }))
+                    }
+                    returnKeyType="done"
+                    onSubmitEditing={Keyboard.dismiss}
+                  />
+                  <Text style={styles.helperText}>
+                    Se crearán tickets independientes con sus propios QR.
+                  </Text>
+                  {formErrors.copias && <Text style={styles.errorText}>{formErrors.copias}</Text>}
+                </View>
+              )}
 
               {!isCreating && (
                 <>

@@ -8,8 +8,15 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, SafeAreaView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NavigationHeader } from '../../components/NavigationHeader';
+import { QRScannerModal } from '../../components/QRScannerModal';
 import { useAuth } from '../../contexts/AuthContext';
-import { consumeTicket, createTicket, getTicket } from '../../services/firestoreData';
+import { useFirebaseConfig } from '../../contexts/FirebaseConfigContext';
+import {
+  consumeTicket,
+  createTicket,
+  getTicket,
+  getTicketByQrCredential,
+} from '../../services/firestoreData';
 import { Ticket } from '../tickets';
 
 
@@ -19,9 +26,11 @@ export default function TicketDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [duplicating, setDuplicating] = useState(false);
+  const [scannerVisible, setScannerVisible] = useState(false);
   const router = useRouter();
   const theme = useTheme();
   const { role } = useAuth();
+  const { config } = useFirebaseConfig();
   const isEmployee = role === 'EMPLEADO';
 
   // Hook para obtener las áreas seguras
@@ -66,7 +75,7 @@ export default function TicketDetailScreen() {
 
   // Función para duplicar ticket
   const handleDuplicateTicket = async () => {
-    if (!ticket) return;
+    if (!ticket || isEmployee) return;
 
     setDuplicating(true);
     try {
@@ -179,7 +188,7 @@ export default function TicketDetailScreen() {
                   </ThemedText>
                 </View>
               )}
-              <TouchableOpacity
+              {!isEmployee && <TouchableOpacity
                 style={[
                   styles.duplicateButton,
                   { backgroundColor: duplicating ? theme.border : theme.buttonPrimary, opacity: duplicating ? 0.7 : 1 }
@@ -195,7 +204,7 @@ export default function TicketDetailScreen() {
                     <ThemedText type="button" style={styles.duplicateButtonText}>Duplicar</ThemedText>
                   </>
                 )}
-              </TouchableOpacity>
+              </TouchableOpacity>}
             </View>
           </View>
 
@@ -253,6 +262,36 @@ export default function TicketDetailScreen() {
             </View>
           </View>
         </ThemedView>
+        <TouchableOpacity
+          accessibilityLabel="Escanear el siguiente código QR"
+          style={[styles.scannerFab, { backgroundColor: theme.buttonPrimary }]}
+          onPress={() => setScannerVisible(true)}
+        >
+          <Ionicons name="scan" size={24} color="white" />
+          <ThemedText type="button" style={styles.scannerFabText}>
+            Escanear siguiente QR
+          </ThemedText>
+        </TouchableOpacity>
+
+        <QRScannerModal
+          visible={scannerVisible}
+          onClose={() => setScannerVisible(false)}
+          projectId={config?.projectId || ''}
+          onTicketScanned={async (ticketId, qrToken) => {
+            try {
+              const scannedTicket = await getTicketByQrCredential(
+                ticketId,
+                qrToken,
+              );
+              if (!scannedTicket) return false;
+              setTicket(scannedTicket);
+              router.replace(`/tickets/${ticketId}`);
+              return true;
+            } catch {
+              return false;
+            }
+          }}
+        />
       </View>
     </SafeAreaView>
   );
@@ -271,6 +310,26 @@ const styles = StyleSheet.create({
     margin: 16,
     borderRadius: 12,
     padding: 16,
+  },
+  scannerFab: {
+    position: 'absolute',
+    right: 18,
+    bottom: 22,
+    minHeight: 54,
+    paddingHorizontal: 18,
+    borderRadius: 27,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 9,
+    elevation: 7,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 5,
+  },
+  scannerFabText: {
+    color: 'white',
   },
   header: {
     flexDirection: 'row',

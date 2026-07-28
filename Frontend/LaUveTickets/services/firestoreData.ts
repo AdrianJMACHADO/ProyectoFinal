@@ -10,6 +10,7 @@ import {
   Timestamp,
   updateDoc,
 } from 'firebase/firestore';
+import * as Crypto from 'expo-crypto';
 
 import { getFirebaseAuth, getFirebaseDb } from '../config/firebase';
 
@@ -21,6 +22,7 @@ export type FeriaRecord = {
 
 export type TicketRecord = {
   idTicket: number;
+  qrToken: string;
   idFeria: number | null;
   nombre: string;
   tipo: string;
@@ -32,11 +34,14 @@ export type TicketRecord = {
 };
 
 type NewFeria = Omit<FeriaRecord, 'idFeria'>;
-type NewTicket = Omit<TicketRecord, 'idTicket' | 'fecha_creacion'>;
+type NewTicket = Omit<TicketRecord, 'idTicket' | 'fecha_creacion' | 'qrToken'>;
 
 const FERIAS = 'ferias';
 const TICKETS = 'tickets';
 const COUNTERS = 'counters';
+
+const generateQrToken = () =>
+  `${Crypto.randomUUID()}${Crypto.randomUUID()}`.replace(/-/g, '').toLowerCase();
 
 const timestampToIso = (value: unknown): string | undefined => {
   if (value instanceof Timestamp) {
@@ -87,16 +92,31 @@ export const listTickets = async (): Promise<TicketRecord[]> => {
     query(collection(db, TICKETS), orderBy('fecha_creacion', 'desc')),
   );
 
-  return snapshot.docs.map((item) => {
+  const tickets = snapshot.docs.map((item) => {
     const data = item.data();
     const usos = Number(data.usos ?? 0);
     const cantidadInicial = Number(data.cantidad_inicial ?? 0);
+    const qrToken =
+      typeof data.qrToken === 'string' && data.qrToken.length >= 32
+        ? data.qrToken
+        : generateQrToken();
     return {
       ...(data as TicketRecord),
+      qrToken,
       fecha_creacion: timestampToIso(data.fecha_creacion),
       agotado: data.agotado ?? usos >= cantidadInicial,
     };
   });
+
+  await Promise.all(
+    snapshot.docs.map((item, index) =>
+      item.data().qrToken
+        ? Promise.resolve()
+        : updateDoc(item.ref, { qrToken: tickets[index].qrToken }),
+    ),
+  );
+
+  return tickets;
 };
 
 export const getTicket = async (idTicket: number): Promise<TicketRecord | null> => {
@@ -114,6 +134,15 @@ export const getTicket = async (idTicket: number): Promise<TicketRecord | null> 
   };
 };
 
+export const getTicketByQrCredential = async (
+  idTicket: number,
+  qrToken: string,
+): Promise<TicketRecord | null> => {
+  const ticket = await getTicket(idTicket);
+  if (!ticket?.qrToken || ticket.qrToken !== qrToken) return null;
+  return ticket;
+};
+
 export const createTicket = async (data: NewTicket): Promise<TicketRecord> => {
   const db = getFirebaseDb();
   const idTicket = await allocateNumericId(TICKETS);
@@ -122,6 +151,7 @@ export const createTicket = async (data: NewTicket): Promise<TicketRecord> => {
   await runTransaction(db, async (transaction) => {
     transaction.set(ticketRef, {
       idTicket,
+      qrToken: generateQrToken(),
       idFeria: data.idFeria ?? null,
       nombre: data.nombre,
       tipo: data.tipo,
@@ -136,6 +166,49 @@ export const createTicket = async (data: NewTicket): Promise<TicketRecord> => {
   const created = await getTicket(idTicket);
   if (!created) throw new Error('No se pudo recuperar el ticket creado');
   return created;
+};
+
+export const createTickets = async (
+  data: NewTicket,
+  count: number,
+): Promise<TicketRecord[]> => {
+  if (!Number.isInteger(count) || count < 1 || count > 100) {
+    throw new Error('La cantidad de tickets debe estar entre 1 y 100');
+  }
+  if (count === 1) return [await createTicket(data)];
+
+  const db = getFirebaseDb();
+  const qrTokens = Array.from({ length: count }, generateQrToken);
+  const counterRef = doc(db, COUNTERS, TICKETS);
+  const ids = await runTransaction(db, async transaction => {
+    const snapshot = await transaction.get(counterRef);
+    const firstId = snapshot.exists() ? Number(snapshot.data().nextId ?? 1) : 1;
+    transaction.set(
+      counterRef,
+      { nextId: firstId + count },
+      { merge: true },
+    );
+
+    const allocatedIds = Array.from({ length: count }, (_, index) => firstId + index);
+    allocatedIds.forEach((idTicket, index) => {
+      transaction.set(doc(db, TICKETS, String(idTicket)), {
+        idTicket,
+        qrToken: qrTokens[index],
+        idFeria: data.idFeria ?? null,
+        nombre: data.nombre,
+        tipo: data.tipo,
+        cantidad_inicial: data.cantidad_inicial,
+        usos: data.usos ?? 0,
+        estado: data.estado ?? 'ACTIVO',
+        agotado: false,
+        fecha_creacion: serverTimestamp(),
+      });
+    });
+    return allocatedIds;
+  });
+
+  const created = await Promise.all(ids.map(getTicket));
+  return created.filter((ticket): ticket is TicketRecord => ticket !== null);
 };
 
 export const updateTicket = async (

@@ -25,7 +25,9 @@ export default function RegisterOwnerScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-  const { createOwner } = useAuth();
+  const [mode, setMode] = useState<'create' | 'recover'>('create');
+  const [success, setSuccess] = useState<string | null>(null);
+  const { createOwner, recoverPassword, logout } = useAuth();
   const theme = useTheme();
   const router = useRouter();
 
@@ -54,9 +56,41 @@ export default function RegisterOwnerScreen() {
           ? 'Ese correo ya está registrado'
           : registerError?.message || 'No se pudo crear el administrador';
       setError(message);
+      if (registerError?.code === 'auth/email-already-in-use') {
+        setMode('recover');
+      }
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleRecovery = async () => {
+    setError(null);
+    setSuccess(null);
+    if (!email.trim()) {
+      setError('Escribe el correo del superadministrador');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await recoverPassword(email);
+      setSuccess(
+        'Te hemos enviado un correo para cambiar la contraseña. Revisa también la carpeta de spam.',
+      );
+    } catch (recoveryError: any) {
+      setError(
+        recoveryError?.code === 'auth/invalid-email'
+          ? 'El correo no es válido'
+          : 'No se pudo enviar el correo de recuperación',
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const returnHome = async () => {
+    await logout().catch(() => undefined);
+    router.replace('/login');
   };
 
   const styles = StyleSheet.create({
@@ -110,7 +144,19 @@ export default function RegisterOwnerScreen() {
     },
     link: { color: theme.buttonPrimary, fontWeight: '600' },
     error: { color: theme.error, textAlign: 'center' },
+    success: { color: theme.success, textAlign: 'center', lineHeight: 20 },
     white: { color: 'white' },
+    modeRow: { flexDirection: 'row', gap: 10 },
+    modeButton: {
+      flex: 1,
+      minHeight: 44,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: theme.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 8,
+    },
   });
 
   return (
@@ -125,14 +171,50 @@ export default function RegisterOwnerScreen() {
         >
           <ThemedView type="card" style={styles.card}>
             <ThemedText type="title" style={styles.title}>
-              Crea el administrador propietario
+              {mode === 'create'
+                ? 'Crea el administrador propietario'
+                : 'Recupera el superadministrador'}
             </ThemedText>
             <ThemedText style={styles.subtitle}>
-              Esta será la cuenta principal y no podrá ser eliminada por otros
-              administradores.
+              {mode === 'create'
+                ? 'Esta será la cuenta principal y no podrá ser eliminada por otros administradores.'
+                : 'Te enviaremos un enlace al correo del superadministrador para elegir una contraseña nueva.'}
             </ThemedText>
 
-            <View style={styles.inputRow}>
+            <View style={styles.modeRow}>
+              <TouchableOpacity
+                style={[
+                  styles.modeButton,
+                  mode === 'create' && { borderColor: theme.buttonPrimary },
+                ]}
+                onPress={() => {
+                  setMode('create');
+                  setError(null);
+                  setSuccess(null);
+                }}
+              >
+                <ThemedText style={mode === 'create' ? styles.link : undefined}>
+                  Primera vez
+                </ThemedText>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.modeButton,
+                  mode === 'recover' && { borderColor: theme.buttonPrimary },
+                ]}
+                onPress={() => {
+                  setMode('recover');
+                  setError(null);
+                  setSuccess(null);
+                }}
+              >
+                <ThemedText style={mode === 'recover' ? styles.link : undefined}>
+                  Recuperar cuenta
+                </ThemedText>
+              </TouchableOpacity>
+            </View>
+
+            {mode === 'create' && <View style={styles.inputRow}>
               <Ionicons name="person-outline" size={20} color={theme.placeholder} />
               <TextInput
                 style={styles.input}
@@ -141,7 +223,7 @@ export default function RegisterOwnerScreen() {
                 placeholder="Nombre"
                 placeholderTextColor={theme.placeholder}
               />
-            </View>
+            </View>}
             <View style={styles.inputRow}>
               <Ionicons name="mail-outline" size={20} color={theme.placeholder} />
               <TextInput
@@ -154,6 +236,7 @@ export default function RegisterOwnerScreen() {
                 keyboardType="email-address"
               />
             </View>
+            {mode === 'create' && <>
             <View style={styles.inputRow}>
               <Ionicons name="lock-closed-outline" size={20} color={theme.placeholder} />
               <TextInput
@@ -183,29 +266,33 @@ export default function RegisterOwnerScreen() {
                 secureTextEntry={!showPassword}
               />
             </View>
+            </>}
 
             {error && <ThemedText style={styles.error}>{error}</ThemedText>}
+            {success && <ThemedText style={styles.success}>{success}</ThemedText>}
 
             <TouchableOpacity
               style={[styles.button, submitting && { opacity: 0.65 }]}
-              onPress={handleSubmit}
+              onPress={mode === 'create' ? handleSubmit : handleRecovery}
               disabled={submitting}
             >
               {submitting ? (
                 <ActivityIndicator color="white" />
               ) : (
                 <ThemedText type="button" style={styles.white}>
-                  Crear administrador
+                  {mode === 'create'
+                    ? 'Crear administrador'
+                    : 'Enviar correo de recuperación'}
                 </ThemedText>
               )}
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.linkButton}
-              onPress={() => router.replace('/login')}
+              onPress={returnHome}
             >
               <ThemedText style={styles.link}>
-                Ya existe un administrador: iniciar sesión
+                Volver al inicio e iniciar sesión
               </ThemedText>
             </TouchableOpacity>
           </ThemedView>
@@ -214,4 +301,3 @@ export default function RegisterOwnerScreen() {
     </SafeAreaView>
   );
 }
-
