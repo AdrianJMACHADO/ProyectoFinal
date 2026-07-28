@@ -49,7 +49,7 @@ export default function RegisterOwnerScreen() {
     setSubmitting(true);
     try {
       await createOwner(nombre, email, password);
-      router.replace('/tickets');
+      router.replace('/AppTabs');
     } catch (registerError: any) {
       const message =
         registerError?.code === 'auth/email-already-in-use'

@@ -2,7 +2,8 @@
   "expo": {
     "name": "LaUveTickets",
     "slug": "LaUveTickets",
-    "version": "1.0.14",
+    "version": "1.1.0",
+    "runtimeVersion": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/v.png",
     "userInterfaceStyle": "automatic",
@@ -20,16 +21,14 @@
       "config": {
         "usesNonExemptEncryption": false
       },
-      "icon": "./assets/images/v.png",
-      "runtimeVersion": "exposdk:54.0.0"
+      "icon": "./assets/images/v.png"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/v.png",
         "backgroundColor": "#f5f5f5"
       },
-      "package": "com.lauve.lauvetickets",
-      "runtimeVersion": "exposdk:54.0.0"
+      "package": "com.lauve.lauvetickets"
     },
     "web": {
       "bundler": "metro",
@@ -61,7 +60,10 @@
       }
     },
     "updates": {
-      "url": "https://u.expo.dev/af84d2a0-4a11-4494-a698-6b23bab417bd"
+      "url": "https://u.expo.dev/af84d2a0-4a11-4494-a698-6b23bab417bd",
+      "requestHeaders": {
+        "expo-channel-name": "preview"
+      }
     }
   }
 }

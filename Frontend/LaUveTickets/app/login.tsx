@@ -50,7 +50,7 @@ export default function LoginScreen() {
     try {
       setLoading(true);
       await login(email, password);
-      router.replace('/tickets');
+      router.replace('/AppTabs');
     } catch (error: any) {
       // console.error("Login failed:", error);
       if (Platform.OS === 'web') {

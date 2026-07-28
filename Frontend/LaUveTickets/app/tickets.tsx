@@ -6,9 +6,8 @@ import { format } from 'date-fns';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, FlatList, Image, SafeAreaView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, FlatList, Image, Platform, SafeAreaView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
-import Share from 'react-native-share';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NavigationHeader } from '../components/NavigationHeader';
 import { QRScannerModal } from '../components/QRScannerModal';
@@ -374,6 +373,13 @@ export default function TicketsScreen() {
         pdfUris.push(finalUri);
       }
 
+      if (Platform.OS === 'web') {
+        throw new Error(
+          'La descarga múltiple desde Web estará disponible próximamente. Puedes compartir los PDF desde Android.',
+        );
+      }
+
+      const { default: Share } = await import('react-native-share');
       await Share.open({
         urls: pdfUris,
         type: 'application/pdf',

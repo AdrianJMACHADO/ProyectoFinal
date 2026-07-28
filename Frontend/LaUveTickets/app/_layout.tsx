@@ -83,6 +83,7 @@ function RootLayoutNav() {
   if (
     user
     && role === 'EMPLEADO'
+    && pathname !== '/AppTabs'
     && pathname !== '/tickets'
     && !pathname.startsWith('/tickets/')
   ) {
@@ -119,6 +120,13 @@ function RootLayoutNav() {
         // Rutas protegidas
         <>
           <Stack.Screen name="tickets" />
+          <Stack.Screen
+            name="AppTabs"
+            options={{
+              animation: 'fade',
+              gestureEnabled: false,
+            }}
+          />
           <Stack.Screen
             name="tickets/[id]"
             options={{

@@ -44,19 +44,6 @@ export function NavigationHeader({
     setShowYearModal(false);
   };
 
-  const navigateTo = (
-    route:
-      | '/tickets'
-      | '/ferias'
-      | '/graficos-tickets'
-      | '/graficos-ferias'
-      | '/usuarios',
-  ) => {
-    if (pathname !== route) {
-      router.replace(route as any);
-    }
-  };
-
   const YearSelector = () => (
     <Modal
       visible={showYearModal}
@@ -118,7 +105,8 @@ export function NavigationHeader({
     },
     navButtons: {
       flexDirection: 'row',
-      gap: 12,
+      alignItems: 'center',
+      gap: 8,
       flex: 1,
     },
     navButtonsSmall: {
@@ -128,6 +116,15 @@ export function NavigationHeader({
       flexDirection: 'row',
       alignItems: 'center',
       gap: 16,
+    },
+    brandTitle: {
+      fontWeight: '800',
+      color: theme.buttonPrimary,
+    },
+    backButton: {
+      padding: 7,
+      borderRadius: 18,
+      backgroundColor: theme.inputBackground,
     },
     navButton: {
       padding: 8,
@@ -218,40 +215,20 @@ export function NavigationHeader({
 
   return (
     <ThemedView type="card" style={styles.header}>
-      {!isEmployee && (
       <View style={[styles.navButtons, isSmallScreen && styles.navButtonsSmall]}>
-        <TouchableOpacity 
-          style={[styles.navButton, isSmallScreen && styles.navButtonSmall]} 
-          onPress={() => navigateTo('/tickets')}
-        >
-          <Ionicons name="ticket" size={isSmallScreen ? 20 : 24} color={theme.buttonPrimary} />
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.navButton, isSmallScreen && styles.navButtonSmall]} 
-          onPress={() => navigateTo('/ferias')}
-        >
-          <Ionicons name="calendar" size={isSmallScreen ? 20 : 24} color={theme.buttonPrimary} />
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.navButton, isSmallScreen && styles.navButtonSmall]} 
-          onPress={() => navigateTo('/graficos-tickets')}
-        >
-          <Ionicons name="bar-chart" size={isSmallScreen ? 20 : 24} color={theme.buttonPrimary} />
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.navButton, isSmallScreen && styles.navButtonSmall]} 
-          onPress={() => navigateTo('/graficos-ferias')}
-        >
-          <Ionicons name="pie-chart" size={isSmallScreen ? 20 : 24} color={theme.buttonPrimary} />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.navButton, isSmallScreen && styles.navButtonSmall]}
-          onPress={() => navigateTo('/usuarios')}
-        >
-          <Ionicons name="people" size={isSmallScreen ? 20 : 24} color={theme.buttonPrimary} />
-        </TouchableOpacity>
+        {pathname.startsWith('/tickets/') && (
+          <TouchableOpacity
+            accessibilityLabel="Volver"
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <Ionicons name="chevron-back" size={22} color={theme.buttonPrimary} />
+          </TouchableOpacity>
+        )}
+        <ThemedText type="subtitle" style={styles.brandTitle}>
+          LaUveTickets
+        </ThemedText>
       </View>
-      )}
 
       <View style={styles.rightSection}>
         {!isEmployee && availableYears && availableYears.length > 0 && selectedYear !== undefined && onYearChange && (

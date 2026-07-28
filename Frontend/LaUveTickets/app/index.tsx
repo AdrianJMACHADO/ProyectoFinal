@@ -33,5 +33,5 @@ export default function Index() {
   }
 
   // Si hay usuario autenticado, redirigir a la página principal de tickets
-  return <Redirect href="/tickets" />;
+  return <Redirect href="/AppTabs" />;
 }
