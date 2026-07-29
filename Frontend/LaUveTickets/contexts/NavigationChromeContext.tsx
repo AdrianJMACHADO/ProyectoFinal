@@ -31,6 +31,7 @@ export function NavigationChromeProvider({
 }) {
   const [activeTab, setActiveTab] = useState('Tickets');
   const [isTabBarCompact, setIsTabBarCompact] = useState(false);
+  const compactRef = useRef(false);
   const [headers, setHeaders] = useState<Record<string, HeaderConfiguration>>({});
   const scrollAnchor = useRef<Record<string, number>>({});
   const registerHeader = useCallback(
@@ -43,6 +44,7 @@ export function NavigationChromeProvider({
   const activateTab = useCallback((tab: string) => {
     setActiveTab(tab);
     setIsTabBarCompact(false);
+    compactRef.current = false;
     scrollAnchor.current[tab] = 0;
   }, []);
 
@@ -55,16 +57,19 @@ export function NavigationChromeProvider({
 
       if (y <= 12) {
         setIsTabBarCompact(false);
+        compactRef.current = false;
         scrollAnchor.current[tab] = y;
         return;
       }
 
       const distance = y - anchor;
-      if (distance >= 22) {
+      if (!compactRef.current && distance >= 24) {
         setIsTabBarCompact(true);
+        compactRef.current = true;
         scrollAnchor.current[tab] = y;
-      } else if (distance <= -18) {
+      } else if (compactRef.current && distance <= -44) {
         setIsTabBarCompact(false);
+        compactRef.current = false;
         scrollAnchor.current[tab] = y;
       }
     },

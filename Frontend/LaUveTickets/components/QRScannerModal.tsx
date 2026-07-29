@@ -19,6 +19,7 @@ import { ThemedText } from './ThemedText';
 interface QRScannerModalProps {
   visible: boolean;
   onClose: () => void;
+  onDismiss?: () => void;
   onTicketScanned: (ticketId: number, qrToken: string) => Promise<boolean>;
   projectId: string;
 }
@@ -46,6 +47,7 @@ const parseTicketQr = (
 export function QRScannerModal({
   visible,
   onClose,
+  onDismiss,
   onTicketScanned,
   projectId,
 }: QRScannerModalProps) {
@@ -153,6 +155,7 @@ export function QRScannerModal({
       animationType="slide"
       presentationStyle="fullScreen"
       onRequestClose={onClose}
+      onDismiss={onDismiss}
     >
       <View
         style={[

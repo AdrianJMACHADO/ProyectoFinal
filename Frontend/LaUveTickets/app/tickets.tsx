@@ -6,7 +6,7 @@ import { format } from 'date-fns';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, FlatList, Image, Platform, SafeAreaView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, FlatList, Image, Platform, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { NavigationHeaderRegistration } from '../components/NavigationHeaderRegistration';
 import { QRScannerModal } from '../components/QRScannerModal';
@@ -69,9 +69,12 @@ export default function TicketsScreen() {
   const [sharingSelection, setSharingSelection] = useState(false);
   const batchQrRefs = useRef<Record<number, any>>({});
   const ticketsListRef = useRef<FlatList<Ticket>>(null);
+  const [ticketsViewportKey, setTicketsViewportKey] = useState(0);
+  const scannerResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const resetTicketsViewport = () => {
     reportScroll('Tickets', 0);
+    setTicketsViewportKey(current => current + 1);
     requestAnimationFrame(() => {
       ticketsListRef.current?.scrollToOffset({
         offset: 0,
@@ -82,8 +85,16 @@ export default function TicketsScreen() {
 
   const closeScanner = () => {
     setScannerVisible(false);
-    resetTicketsViewport();
+    if (scannerResetTimer.current) clearTimeout(scannerResetTimer.current);
+    scannerResetTimer.current = setTimeout(resetTicketsViewport, 350);
   };
+
+  useEffect(
+    () => () => {
+      if (scannerResetTimer.current) clearTimeout(scannerResetTimer.current);
+    },
+    [],
+  );
 
   // Hook para obtener las áreas seguras
 
@@ -663,16 +674,16 @@ export default function TicketsScreen() {
   };
 
   if (loading) return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={styles.center}>
         <ActivityIndicator size="large" color={theme.buttonPrimary} />
       </View>
-    </SafeAreaView>
+    </View>
   );
 
   if (error) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
         <View style={styles.errorContainer}>
           <Ionicons name="cloud-offline" size={50} color={theme.error} />
           <ThemedText type="subtitle" style={styles.errorTextCentered}>Error al cargar los tickets: {error}</ThemedText>
@@ -683,7 +694,7 @@ export default function TicketsScreen() {
             <ThemedText type="button" style={styles.buttonText}>Reintentar</ThemedText>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -699,7 +710,7 @@ export default function TicketsScreen() {
   });
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       <NavigationHeaderRegistration
         tab="Tickets"
         onYearChange={handleYearChange}
@@ -816,6 +827,7 @@ export default function TicketsScreen() {
         ) : (
           <>
             <FlatList
+              key={`tickets-list-${ticketsViewportKey}`}
               ref={ticketsListRef}
               onScroll={event =>
                 reportScroll('Tickets', event.nativeEvent.contentOffset.y)
@@ -886,6 +898,7 @@ export default function TicketsScreen() {
       <QRScannerModal
         visible={scannerVisible}
         onClose={closeScanner}
+        onDismiss={resetTicketsViewport}
         onTicketScanned={async (ticketId, qrToken) => {
           try {
             const ticket = await getTicketByQrCredential(ticketId, qrToken);
@@ -921,6 +934,6 @@ export default function TicketsScreen() {
             />
           ))}
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
