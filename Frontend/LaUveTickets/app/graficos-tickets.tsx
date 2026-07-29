@@ -7,10 +7,12 @@ import { ActivityIndicator, Alert, Dimensions, Platform, SafeAreaView, ScrollVie
 import { PieChart } from 'react-native-chart-kit';
 import { ProgressBar } from 'react-native-paper';
 import { NavigationHeaderRegistration } from '../components/NavigationHeaderRegistration';
+import { useNavigationChrome } from '../contexts/NavigationChromeContext';
 import { listFerias, listTickets } from '../services/firestoreData';
 import { Feria, Ticket } from './tickets';
 
 export default function GraficosTicketsScreen() {
+  const { reportScroll } = useNavigationChrome();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [ferias, setFerias] = useState<Feria[]>([]);
   const [loading, setLoading] = useState(true);
@@ -76,7 +78,7 @@ export default function GraficosTicketsScreen() {
     },
     content: {
       padding: 16,
-      paddingBottom: 30,
+      paddingBottom: 116,
     },
     contentLarge: {
       padding: 24,
@@ -341,7 +343,13 @@ export default function GraficosTicketsScreen() {
         selectedYear={selectedYear}
         onYearChange={handleYearChange}
       />
-      <ScrollView style={styles.scrollView}>
+      <ScrollView
+        style={styles.scrollView}
+        onScroll={event =>
+          reportScroll('Uso', event.nativeEvent.contentOffset.y)
+        }
+        scrollEventThrottle={16}
+      >
         <View style={[styles.content, isLargeScreen && styles.contentLarge]}>
           <ThemedText type="title" style={styles.title}>Gráficos de Tickets</ThemedText>
 

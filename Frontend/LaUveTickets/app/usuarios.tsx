@@ -2,6 +2,7 @@ import { NavigationHeaderRegistration } from '@/components/NavigationHeaderRegis
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { useAuth } from '@/contexts/AuthContext';
+import { useNavigationChrome } from '@/contexts/NavigationChromeContext';
 import { useTheme } from '@/hooks/useThemeColor';
 import {
   CreateManagedUserInput,
@@ -34,6 +35,7 @@ const emptyForm: CreateManagedUserInput = {
 };
 
 export default function UsersScreen() {
+  const { reportScroll } = useNavigationChrome();
   const { role, user } = useAuth();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -254,6 +256,11 @@ export default function UsersScreen() {
           <ActivityIndicator size="large" color={theme.buttonPrimary} />
         ) : (
           <FlatList
+            onScroll={event =>
+              reportScroll('Usuarios', event.nativeEvent.contentOffset.y)
+            }
+            scrollEventThrottle={16}
+            contentContainerStyle={{ paddingBottom: 116 }}
             data={users}
             keyExtractor={item => item.uid}
             renderItem={({ item }) => (

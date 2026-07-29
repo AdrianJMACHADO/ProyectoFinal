@@ -14,6 +14,7 @@ import { createTicketPdf, QRGenerator, ticketQrValue } from '../components/QRGen
 import { TicketEditModal } from '../components/TicketEditModal';
 import { useAuth } from '../contexts/AuthContext';
 import { useFirebaseConfig } from '../contexts/FirebaseConfigContext';
+import { useNavigationChrome } from '../contexts/NavigationChromeContext';
 import {
   createTickets,
   getTicketByQrCredential,
@@ -44,6 +45,7 @@ export type Feria = {
 };
 
 export default function TicketsScreen() {
+  const { reportScroll } = useNavigationChrome();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [ferias, setFerias] = useState<Feria[]>([]);
   const [loading, setLoading] = useState(true);
@@ -105,6 +107,7 @@ export default function TicketsScreen() {
     },
     listContainer: {
       padding: 16,
+      paddingBottom: 116,
     },
     ticketCard: {
       marginBottom: 16,
@@ -193,7 +196,7 @@ export default function TicketsScreen() {
     fab: {
       position: 'absolute',
       right: 16,
-      bottom: 16,
+      bottom: 94,
       width: 56,
       height: 56,
       borderRadius: 28,
@@ -208,7 +211,7 @@ export default function TicketsScreen() {
     scannerFab: {
       position: 'absolute',
       left: 16,
-      bottom: 16,
+      bottom: 94,
       width: 56,
       height: 56,
       borderRadius: 28,
@@ -797,6 +800,10 @@ export default function TicketsScreen() {
         ) : (
           <>
             <FlatList
+              onScroll={event =>
+                reportScroll('Tickets', event.nativeEvent.contentOffset.y)
+              }
+              scrollEventThrottle={16}
               data={filteredTickets}
               renderItem={renderTicket}
               keyExtractor={item => item.idTicket.toString()}

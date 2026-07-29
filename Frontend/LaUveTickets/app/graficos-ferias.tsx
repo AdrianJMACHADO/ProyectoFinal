@@ -8,10 +8,12 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, SafeAreaView, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { PieChart } from 'react-native-chart-kit';
 import { NavigationHeaderRegistration } from '../components/NavigationHeaderRegistration';
+import { useNavigationChrome } from '../contexts/NavigationChromeContext';
 import { listFerias } from '../services/firestoreData';
 import { Feria } from './tickets';
 
 export default function GraficosFeriasScreen() {
+  const { reportScroll } = useNavigationChrome();
   const [ferias, setFerias] = useState<Feria[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedYear, setSelectedYear] = useState<string | null>(null);
@@ -71,7 +73,7 @@ export default function GraficosFeriasScreen() {
     },
     content: {
       padding: 16,
-      paddingBottom: 30,
+      paddingBottom: 116,
     },
     contentLarge: {
       padding: 24,
@@ -219,7 +221,13 @@ export default function GraficosFeriasScreen() {
         selectedYear={selectedYear}
         onYearChange={handleYearChange}
       />
-      <ScrollView style={styles.scrollView}>
+      <ScrollView
+        style={styles.scrollView}
+        onScroll={event =>
+          reportScroll('FeriasStats', event.nativeEvent.contentOffset.y)
+        }
+        scrollEventThrottle={16}
+      >
         <View style={[styles.content, isLargeScreen && styles.contentLarge]}>
           <ThemedText type="title" style={styles.title}>Gráficos de Ferias</ThemedText>
 

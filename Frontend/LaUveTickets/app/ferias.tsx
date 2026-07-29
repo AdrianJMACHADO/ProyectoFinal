@@ -9,6 +9,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, SafeAreaView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { NavigationHeaderRegistration } from '../components/NavigationHeaderRegistration';
 import { useAuth } from '../contexts/AuthContext';
+import { useNavigationChrome } from '../contexts/NavigationChromeContext';
 import { createFeria, listFerias, updateFeria } from '../services/firestoreData';
 
 // Caracteres especiales a filtrar de los inputs (para seguridad)
@@ -22,6 +23,7 @@ interface Feria {
 }
 
 const FeriasScreen: React.FC = () => {
+  const { reportScroll } = useNavigationChrome();
   const router = useRouter();
   const { logout } = useAuth();
   const theme = useTheme();
@@ -236,6 +238,7 @@ const FeriasScreen: React.FC = () => {
     },
     listContainer: {
       padding: 16,
+      paddingBottom: 116,
     },
     feriaItem: {
       marginBottom: 16,
@@ -286,7 +289,7 @@ const FeriasScreen: React.FC = () => {
     fab: {
       position: 'absolute',
       right: 16,
-      bottom: 16,
+      bottom: 94,
       width: 56,
       height: 56,
       borderRadius: 28,
@@ -443,6 +446,10 @@ const FeriasScreen: React.FC = () => {
           </View>
         ) : filteredFerias.length > 0 ? (
           <FlatList
+            onScroll={(event) =>
+              reportScroll('Ferias', event.nativeEvent.contentOffset.y)
+            }
+            scrollEventThrottle={16}
             data={filteredFerias}
             keyExtractor={(item) => item.idFeria.toString()}
             renderItem={renderFeria}

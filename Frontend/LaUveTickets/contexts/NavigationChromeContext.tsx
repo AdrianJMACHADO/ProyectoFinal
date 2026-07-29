@@ -3,6 +3,7 @@ import React, {
   useCallback,
   useContext,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
@@ -17,6 +18,8 @@ type NavigationChromeValue = {
   activeHeader: HeaderConfiguration;
   setActiveTab: (tab: string) => void;
   registerHeader: (tab: string, config: HeaderConfiguration) => void;
+  isTabBarCompact: boolean;
+  reportScroll: (tab: string, offsetY: number) => void;
 };
 
 const NavigationChromeContext = createContext<NavigationChromeValue | null>(null);
@@ -27,7 +30,9 @@ export function NavigationChromeProvider({
   children: React.ReactNode;
 }) {
   const [activeTab, setActiveTab] = useState('Tickets');
+  const [isTabBarCompact, setIsTabBarCompact] = useState(false);
   const [headers, setHeaders] = useState<Record<string, HeaderConfiguration>>({});
+  const scrollAnchor = useRef<Record<string, number>>({});
   const registerHeader = useCallback(
     (tab: string, config: HeaderConfiguration) => {
       setHeaders(current => ({ ...current, [tab]: config }));
@@ -35,14 +40,54 @@ export function NavigationChromeProvider({
     [],
   );
 
+  const activateTab = useCallback((tab: string) => {
+    setActiveTab(tab);
+    setIsTabBarCompact(false);
+    scrollAnchor.current[tab] = 0;
+  }, []);
+
+  const reportScroll = useCallback(
+    (tab: string, offsetY: number) => {
+      if (tab !== activeTab) return;
+
+      const y = Math.max(0, offsetY);
+      const anchor = scrollAnchor.current[tab] ?? y;
+
+      if (y <= 12) {
+        setIsTabBarCompact(false);
+        scrollAnchor.current[tab] = y;
+        return;
+      }
+
+      const distance = y - anchor;
+      if (distance >= 22) {
+        setIsTabBarCompact(true);
+        scrollAnchor.current[tab] = y;
+      } else if (distance <= -18) {
+        setIsTabBarCompact(false);
+        scrollAnchor.current[tab] = y;
+      }
+    },
+    [activeTab],
+  );
+
   const value = useMemo(
     () => ({
       activeTab,
       activeHeader: headers[activeTab] ?? {},
-      setActiveTab,
+      setActiveTab: activateTab,
       registerHeader,
+      isTabBarCompact,
+      reportScroll,
     }),
-    [activeTab, headers, registerHeader],
+    [
+      activeTab,
+      activateTab,
+      headers,
+      isTabBarCompact,
+      registerHeader,
+      reportScroll,
+    ],
   );
 
   return (

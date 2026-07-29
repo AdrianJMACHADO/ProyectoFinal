@@ -4,6 +4,20 @@ node_modules/
 dist/
 web-build/
 
+# EAS archiva desde la raíz del repositorio. Estas rutas evitan subir
+# dependencias y resultados nativos generados en Windows.
+Backend/node_modules/
+Frontend/LaUveTickets/node_modules/
+Frontend/LaUveTickets/.expo/
+Frontend/LaUveTickets/dist/
+Frontend/LaUveTickets/web-build/
+Frontend/LaUveTickets/android/.gradle/
+Frontend/LaUveTickets/android/.kotlin/
+Frontend/LaUveTickets/android/build/
+Frontend/LaUveTickets/android/app/build/
+Frontend/LaUveTickets/android/.cxx/
+Frontend/LaUveTickets/android/app/.cxx/
+
 # Local Android caches and build products
 android/.gradle/
 android/.cxx/
