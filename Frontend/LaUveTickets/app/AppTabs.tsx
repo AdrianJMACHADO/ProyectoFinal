@@ -10,7 +10,7 @@ import {
   MaterialTopTabBarProps,
 } from '@react-navigation/material-top-tabs';
 import { BlurView } from 'expo-blur';
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Dimensions,
@@ -18,7 +18,6 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -38,7 +37,6 @@ type AppTabParamList = {
 };
 
 const Tab = createMaterialTopTabNavigator<AppTabParamList>();
-const AnimatedIonicons = Animated.createAnimatedComponent(Ionicons);
 
 const icons: Record<
   keyof AppTabParamList,
@@ -56,7 +54,7 @@ function FloatingTabBar(props: MaterialTopTabBarProps) {
   const insets = useSafeAreaInsets();
   const { isTabBarCompact, setActiveTab } = useNavigationChrome();
   const progress = useRef(new Animated.Value(0)).current;
-  const { width: viewportWidth } = useWindowDimensions();
+  const [tabsWidth, setTabsWidth] = useState(0);
   const routeCount = props.state.routes.length;
 
   useEffect(() => {
@@ -89,12 +87,6 @@ function FloatingTabBar(props: MaterialTopTabBarProps) {
     inputRange: [0, 1],
     outputRange: [1, 21 / 23],
   });
-  const innerBarWidth = progress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [viewportWidth - 38, viewportWidth - 98],
-  });
-  const pillWidth = Animated.divide(innerBarWidth, routeCount);
-
   return (
     <Animated.View
       style={[
@@ -132,22 +124,35 @@ function FloatingTabBar(props: MaterialTopTabBarProps) {
             Platform.OS === 'web' && styles.webGlass,
           ]}
         />
-        <View style={styles.tabItems}>
-          <Animated.View
-            pointerEvents="none"
-            style={[
-              styles.activePill,
-              {
-                width: pillWidth,
-                backgroundColor: `${theme.buttonPrimary}1F`,
-                transform: [
-                  {
-                    translateX: Animated.multiply(props.position, pillWidth),
-                  },
-                ],
-              },
-            ]}
-          />
+        <View
+          style={styles.tabItems}
+          onLayout={event => {
+            const measuredWidth = Math.round(event.nativeEvent.layout.width);
+            setTabsWidth(current =>
+              current === measuredWidth ? current : measuredWidth,
+            );
+          }}
+        >
+          {tabsWidth > 0 && (
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                styles.activePill,
+                {
+                  width: (tabsWidth - 10) / routeCount,
+                  backgroundColor: `${theme.buttonPrimary}1F`,
+                  transform: [
+                    {
+                      translateX: Animated.multiply(
+                        props.position,
+                        (tabsWidth - 10) / routeCount,
+                      ),
+                    },
+                  ],
+                },
+              ]}
+            />
+          )}
           {props.state.routes.map((route, index) => {
             const focused = props.state.index === index;
             const options = props.descriptors[route.key].options;
@@ -210,7 +215,7 @@ function FloatingTabBar(props: MaterialTopTabBarProps) {
                   <Animated.View
                     style={[styles.activeIconLayer, { opacity: activeOpacity }]}
                   >
-                    <AnimatedIonicons
+                    <Ionicons
                       name={routeIcons.active}
                       size={23}
                       color={theme.buttonPrimary}
