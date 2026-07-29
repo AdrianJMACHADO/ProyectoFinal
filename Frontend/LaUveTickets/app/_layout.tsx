@@ -94,11 +94,10 @@ function RootLayoutNav() {
   if (
     user
     && role === 'EMPLEADO'
-    && pathname !== '/AppTabs'
-    && pathname !== '/tickets'
+    && pathname !== '/empleado'
     && !pathname.startsWith('/tickets/')
   ) {
-    return <Redirect href="/tickets" />;
+    return <Redirect href={'/empleado' as any} />;
   }
 
   return (
@@ -131,6 +130,13 @@ function RootLayoutNav() {
         // Rutas protegidas
         <>
           <Stack.Screen name="tickets" />
+          <Stack.Screen
+            name="empleado"
+            options={{
+              animation: 'fade',
+              gestureEnabled: false,
+            }}
+          />
           <Stack.Screen
             name="AppTabs"
             options={{
