@@ -146,7 +146,7 @@ export const TicketEditModal: React.FC<TicketEditModalProps> = ({
     if (!form.nombre || !form.nombre.trim()) errors.nombre = 'El nombre es obligatorio';
     if (!form.tipo || !form.tipo.trim()) errors.tipo = 'El tipo es obligatorio';
     if (isCreating && (form.cantidad_inicial === undefined || form.cantidad_inicial === null || form.cantidad_inicial < 0))
-      errors.cantidad_inicial = 'La cantidad inicial debe ser un número positivo al crear';
+      errors.cantidad_inicial = 'El número de viajes debe ser un número positivo';
 
     if (
       isCreating
@@ -161,7 +161,7 @@ export const TicketEditModal: React.FC<TicketEditModalProps> = ({
 
     // Validación para usos en modo edición
     if (!isCreating && form.usos !== undefined && form.cantidad_inicial !== undefined && form.usos > form.cantidad_inicial) {
-        errors.usos = 'Los usos no pueden ser mayores que la cantidad inicial';
+        errors.usos = 'Los usos no pueden ser mayores que el número de viajes';
     }
 
     setFormErrors(errors);
@@ -566,11 +566,11 @@ export const TicketEditModal: React.FC<TicketEditModalProps> = ({
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Cantidad Inicial</Text>
+                <Text style={styles.label}>Número de viajes</Text>
                 <TextInput
                   ref={cantidadInputRef}
                   style={[styles.input, !isCreating && styles.disabledInput, formErrors.cantidad_inicial && styles.inputError]}
-                  placeholder="Cantidad inicial de usos"
+                  placeholder="Número de viajes"
                   placeholderTextColor={theme.placeholder}
                   keyboardType="numeric"
                   value={form.cantidad_inicial != null ? form.cantidad_inicial.toString() : ''}

@@ -56,9 +56,9 @@ export default function TicketDetailScreen() {
   const handleIncrementUsos = async () => {
     if (!ticket) return;
 
-    // Validar que no se exceda la cantidad inicial
+    // Validar que no se exceda el número de viajes
     if (ticket.usos && ticket.usos >= ticket.cantidad_inicial) {
-      Alert.alert('Error', 'No se pueden incrementar más usos que la cantidad inicial');
+      Alert.alert('Error', 'No se pueden incrementar más usos que el número de viajes');
       return;
     }
 
@@ -214,7 +214,7 @@ export default function TicketDetailScreen() {
             </View>
 
             <View style={styles.infoRow}>
-              <ThemedText style={styles.label}>Cantidad Inicial:</ThemedText>
+              <ThemedText style={styles.label}>Número de viajes:</ThemedText>
               <ThemedText style={styles.value}>{ticket.cantidad_inicial}</ThemedText>
             </View>
 
