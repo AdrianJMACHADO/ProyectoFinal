@@ -154,9 +154,8 @@ export default function TicketDetailScreen() {
   const canIncrement = isActive && !isExhausted;
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
-      <View style={[styles.container, { backgroundColor: theme.background }]}>
-        <NavigationHeader />
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <NavigationHeader />
         <ThemedView
           type="card"
           style={[
@@ -264,7 +263,13 @@ export default function TicketDetailScreen() {
         </ThemedView>
         <TouchableOpacity
           accessibilityLabel="Escanear el siguiente código QR"
-          style={[styles.scannerFab, { backgroundColor: theme.buttonPrimary }]}
+          style={[
+            styles.scannerFab,
+            {
+              backgroundColor: theme.buttonPrimary,
+              bottom: Math.max(insets.bottom, 12) + 10,
+            },
+          ]}
           onPress={() => setScannerVisible(true)}
         >
           <Ionicons name="scan" size={24} color="white" />
@@ -292,8 +297,7 @@ export default function TicketDetailScreen() {
             }
           }}
         />
-      </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
