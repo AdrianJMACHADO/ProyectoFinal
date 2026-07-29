@@ -6,7 +6,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, SafeAreaView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { NavigationActionsRegistration } from '../components/NavigationActionsRegistration';
 import { NavigationHeaderRegistration } from '../components/NavigationHeaderRegistration';
 import { useAuth } from '../contexts/AuthContext';
@@ -483,7 +483,7 @@ const FeriasScreen: React.FC = () => {
 
   if (error) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
         <View style={styles.errorContainer}>
           <Ionicons name="cloud-offline" size={50} color={theme.error} />
           <ThemedText type="subtitle" style={styles.errorTextCentered}>
@@ -496,12 +496,12 @@ const FeriasScreen: React.FC = () => {
             <ThemedText type="button" style={styles.buttonText}>Reintentar</ThemedText>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       <NavigationHeaderRegistration
         tab="Ferias"
         availableYears={availableYears}
@@ -721,7 +721,7 @@ const FeriasScreen: React.FC = () => {
         />
       )}
 
-    </SafeAreaView>
+    </View>
   );
 };
 

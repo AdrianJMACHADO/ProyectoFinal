@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, SafeAreaView, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { PieChart } from 'react-native-chart-kit';
 import { NavigationHeaderRegistration } from '../components/NavigationHeaderRegistration';
 import { useNavigationChrome } from '../contexts/NavigationChromeContext';
@@ -201,17 +201,17 @@ export default function GraficosFeriasScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
         <View style={styles.center}>
           <ActivityIndicator size="large" color={theme.buttonPrimary} />
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   if (error) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
         <View style={styles.errorContainer}>
           <Ionicons name="cloud-offline" size={50} color={theme.error} />
           <ThemedText style={styles.errorTextCentered}>Error al cargar los datos: {error}</ThemedText>
@@ -222,7 +222,7 @@ export default function GraficosFeriasScreen() {
             <ThemedText style={styles.retryButtonText}>Reintentar</ThemedText>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -249,7 +249,7 @@ export default function GraficosFeriasScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       <NavigationHeaderRegistration
         tab="FeriasStats"
         availableYears={availableYears}
@@ -297,6 +297,6 @@ export default function GraficosFeriasScreen() {
           </ThemedView>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }

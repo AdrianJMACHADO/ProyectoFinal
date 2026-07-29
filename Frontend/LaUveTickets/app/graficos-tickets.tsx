@@ -3,7 +3,7 @@ import { ThemedView } from '@/components/ThemedView';
 import { useTheme } from '@/hooks/useThemeColor';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, Platform, SafeAreaView, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { PieChart } from 'react-native-chart-kit';
 import { ProgressBar } from 'react-native-paper';
 import { NavigationHeaderRegistration } from '../components/NavigationHeaderRegistration';
@@ -310,7 +310,7 @@ export default function GraficosTicketsScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView
+      <View
         style={[
           styles.container,
           { backgroundColor: theme.background },
@@ -319,13 +319,13 @@ export default function GraficosTicketsScreen() {
         <View style={styles.center}>
           <ActivityIndicator size="large" color={theme.buttonPrimary} />
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   if (error) {
     return (
-      <SafeAreaView
+      <View
         style={[
           styles.container,
           { backgroundColor: theme.background },
@@ -341,7 +341,7 @@ export default function GraficosTicketsScreen() {
             <ThemedText style={styles.retryButtonText}>Reintentar</ThemedText>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -389,7 +389,7 @@ export default function GraficosTicketsScreen() {
   const barWidth = Math.max(feriaLabelsFiltered.length * 180, screenWidth - 40);
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       <NavigationHeaderRegistration
         tab="Uso"
         availableYears={availableYears}
@@ -496,6 +496,6 @@ export default function GraficosTicketsScreen() {
           </ThemedView>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }

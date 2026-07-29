@@ -20,7 +20,6 @@ import {
   Alert,
   FlatList,
   Modal,
-  SafeAreaView,
   StyleSheet,
   TextInput,
   TouchableOpacity,
@@ -244,7 +243,7 @@ export default function UsersScreen() {
   });
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <NavigationHeaderRegistration tab="Usuarios" />
       <NavigationActionsRegistration
         tab="Usuarios"
@@ -428,6 +427,6 @@ export default function UsersScreen() {
           </ThemedView>
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
