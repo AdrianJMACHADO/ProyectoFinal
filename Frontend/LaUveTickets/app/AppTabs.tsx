@@ -10,7 +10,7 @@ import {
   MaterialTopTabBarProps,
 } from '@react-navigation/material-top-tabs';
 import { BlurView } from 'expo-blur';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   Animated,
   Dimensions,
@@ -18,6 +18,7 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -37,6 +38,7 @@ type AppTabParamList = {
 };
 
 const Tab = createMaterialTopTabNavigator<AppTabParamList>();
+const AnimatedIonicons = Animated.createAnimatedComponent(Ionicons);
 
 const icons: Record<
   keyof AppTabParamList,
@@ -54,7 +56,8 @@ function FloatingTabBar(props: MaterialTopTabBarProps) {
   const insets = useSafeAreaInsets();
   const { isTabBarCompact, setActiveTab } = useNavigationChrome();
   const progress = useRef(new Animated.Value(0)).current;
-  const [tabsWidth, setTabsWidth] = useState(0);
+  const { width: viewportWidth } = useWindowDimensions();
+  const routeCount = props.state.routes.length;
 
   useEffect(() => {
     Animated.spring(progress, {
@@ -75,13 +78,22 @@ function FloatingTabBar(props: MaterialTopTabBarProps) {
     outputRange: [14, 44],
   });
   const labelOpacity = progress.interpolate({
-    inputRange: [0, 0.7, 1],
+    inputRange: [0, 0.58, 1],
     outputRange: [1, 0, 0],
   });
-  const labelHeight = progress.interpolate({
+  const iconTranslateY = progress.interpolate({
     inputRange: [0, 1],
-    outputRange: [17, 0],
+    outputRange: [-8, 0],
   });
+  const iconScale = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 21 / 23],
+  });
+  const innerBarWidth = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [viewportWidth - 38, viewportWidth - 98],
+  });
+  const pillWidth = Animated.divide(innerBarWidth, routeCount);
 
   return (
     <Animated.View
@@ -120,39 +132,40 @@ function FloatingTabBar(props: MaterialTopTabBarProps) {
             Platform.OS === 'web' && styles.webGlass,
           ]}
         />
-        <View
-          style={styles.tabItems}
-          onLayout={event => setTabsWidth(event.nativeEvent.layout.width)}
-        >
-          {tabsWidth > 0 && (
-            <Animated.View
-              pointerEvents="none"
-              style={[
-                styles.activePill,
-                {
-                  width: (tabsWidth - 10) / props.state.routes.length,
-                  backgroundColor: `${theme.buttonPrimary}1F`,
-                  transform: [
-                    {
-                      translateX: Animated.multiply(
-                        props.position,
-                        (tabsWidth - 10) / props.state.routes.length,
-                      ),
-                    },
-                  ],
-                },
-              ]}
-            />
-          )}
+        <View style={styles.tabItems}>
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              styles.activePill,
+              {
+                width: pillWidth,
+                backgroundColor: `${theme.buttonPrimary}1F`,
+                transform: [
+                  {
+                    translateX: Animated.multiply(props.position, pillWidth),
+                  },
+                ],
+              },
+            ]}
+          />
           {props.state.routes.map((route, index) => {
             const focused = props.state.index === index;
             const options = props.descriptors[route.key].options;
-            const color = focused
-              ? theme.buttonPrimary
-              : theme.placeholder;
             const routeIcons = icons[route.name as keyof AppTabParamList];
             const label =
               typeof options.title === 'string' ? options.title : route.name;
+            const activeOpacity =
+              routeCount === 1
+                ? 1
+                : props.position.interpolate({
+                    inputRange: props.state.routes.map(
+                      (_, routeIndex) => routeIndex,
+                    ),
+                    outputRange: props.state.routes.map((_, routeIndex) =>
+                      routeIndex === index ? 1 : 0,
+                    ),
+                    extrapolate: 'clamp',
+                  });
 
             const onPress = () => {
               setActiveTab(route.name);
@@ -177,21 +190,56 @@ function FloatingTabBar(props: MaterialTopTabBarProps) {
                   pressed && styles.tabItemPressed,
                 ]}
               >
-                <Ionicons
-                  name={focused ? routeIcons.active : routeIcons.inactive}
-                  size={isTabBarCompact ? 21 : 23}
-                  color={color}
-                />
                 <Animated.View
-                  style={{
-                    height: labelHeight,
-                    opacity: labelOpacity,
-                    overflow: 'hidden',
-                  }}
+                  pointerEvents="none"
+                  style={[
+                    styles.tabIconLayer,
+                    {
+                      transform: [
+                        { translateY: iconTranslateY },
+                        { scale: iconScale },
+                      ],
+                    },
+                  ]}
                 >
-                  <Text style={[styles.tabLabel, { color }]} numberOfLines={1}>
+                  <Ionicons
+                    name={routeIcons.inactive}
+                    size={23}
+                    color={theme.placeholder}
+                  />
+                  <Animated.View
+                    style={[styles.activeIconLayer, { opacity: activeOpacity }]}
+                  >
+                    <AnimatedIonicons
+                      name={routeIcons.active}
+                      size={23}
+                      color={theme.buttonPrimary}
+                    />
+                  </Animated.View>
+                </Animated.View>
+                <Animated.View
+                  pointerEvents="none"
+                  style={[styles.tabLabelLayer, { opacity: labelOpacity }]}
+                >
+                  <Text
+                    style={[styles.tabLabel, { color: theme.placeholder }]}
+                    numberOfLines={1}
+                  >
                     {label}
                   </Text>
+                  <Animated.View
+                    style={[styles.activeLabelLayer, { opacity: activeOpacity }]}
+                  >
+                    <Text
+                      style={[
+                        styles.tabLabel,
+                        { color: theme.buttonPrimary },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {label}
+                    </Text>
+                  </Animated.View>
                 </Animated.View>
               </Pressable>
             );
@@ -311,8 +359,33 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 1,
     zIndex: 1,
+  },
+  tabIconLayer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: '50%',
+    marginTop: -12,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  activeIconLayer: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabLabelLayer: {
+    position: 'absolute',
+    left: 2,
+    right: 2,
+    bottom: 4,
+    height: 15,
+    overflow: 'hidden',
+  },
+  activeLabelLayer: {
+    ...StyleSheet.absoluteFillObject,
   },
   activePill: {
     position: 'absolute',
