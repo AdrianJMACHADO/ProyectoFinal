@@ -3,6 +3,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  onSnapshot,
   orderBy,
   query,
   runTransaction,
@@ -68,6 +69,18 @@ export const listFerias = async (): Promise<FeriaRecord[]> => {
   return snapshot.docs.map((item) => item.data() as FeriaRecord);
 };
 
+export const subscribeFerias = (
+  onData: (ferias: FeriaRecord[]) => void,
+  onError?: (error: Error) => void,
+) => {
+  const db = getFirebaseDb();
+  return onSnapshot(
+    query(collection(db, FERIAS), orderBy('fecha', 'desc')),
+    snapshot => onData(snapshot.docs.map(item => item.data() as FeriaRecord)),
+    error => onError?.(error),
+  );
+};
+
 export const createFeria = async (data: NewFeria): Promise<FeriaRecord> => {
   const db = getFirebaseDb();
   const idFeria = await allocateNumericId(FERIAS);
@@ -117,6 +130,46 @@ export const listTickets = async (): Promise<TicketRecord[]> => {
   );
 
   return tickets;
+};
+
+const normalizeTicket = (data: Record<string, unknown>): TicketRecord => {
+  const usos = Number(data.usos ?? 0);
+  const cantidadInicial = Number(data.cantidad_inicial ?? 0);
+  const qrToken =
+    typeof data.qrToken === 'string' && data.qrToken.length >= 32
+      ? data.qrToken
+      : generateQrToken();
+
+  return {
+    ...(data as TicketRecord),
+    qrToken,
+    fecha_creacion: timestampToIso(data.fecha_creacion),
+    agotado:
+      typeof data.agotado === 'boolean'
+        ? data.agotado
+        : usos >= cantidadInicial,
+  };
+};
+
+export const subscribeTickets = (
+  onData: (tickets: TicketRecord[]) => void,
+  onError?: (error: Error) => void,
+) => {
+  const db = getFirebaseDb();
+  return onSnapshot(
+    query(collection(db, TICKETS), orderBy('fecha_creacion', 'desc')),
+    snapshot => {
+      const tickets = snapshot.docs.map(item => normalizeTicket(item.data()));
+      onData(tickets);
+
+      snapshot.docs.forEach((item, index) => {
+        if (!item.data().qrToken) {
+          void updateDoc(item.ref, { qrToken: tickets[index].qrToken });
+        }
+      });
+    },
+    error => onError?.(error),
+  );
 };
 
 export const getTicket = async (idTicket: number): Promise<TicketRecord | null> => {

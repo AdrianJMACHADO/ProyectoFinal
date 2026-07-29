@@ -21,6 +21,8 @@ import {
   getTicketByQrCredential,
   listFerias,
   listTickets,
+  subscribeFerias,
+  subscribeTickets,
   updateTicket,
 } from '../services/firestoreData';
 
@@ -438,7 +440,61 @@ export default function TicketsScreen() {
     setLoading(false);
   };
 
-  useEffect(() => { loadData(); }, [isEmployee]);
+  useEffect(() => {
+    if (isEmployee) {
+      setTickets([]);
+      setFerias([]);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    let ticketsReady = false;
+    let feriasReady = false;
+    const finishInitialLoad = () => {
+      if (ticketsReady && feriasReady) setLoading(false);
+    };
+    const handleSubscriptionError = (subscriptionError: Error) => {
+      setError(subscriptionError.message || 'No se pudieron sincronizar los datos');
+      setLoading(false);
+    };
+
+    const unsubscribeTickets = subscribeTickets(data => {
+      setTickets(data);
+      const years = Array.from(
+        new Set(
+          data
+            .filter(ticket => ticket.fecha_creacion)
+            .map(ticket =>
+              new Date(ticket.fecha_creacion!).getFullYear().toString(),
+            ),
+        ),
+      ).sort((a, b) => Number(b) - Number(a));
+      const yearOptions = ['Todas las fechas', ...years];
+      setAvailableYears(yearOptions);
+      setSelectedYear(current =>
+        current && yearOptions.includes(current)
+          ? current
+          : years[0] ?? 'Todas las fechas',
+      );
+      ticketsReady = true;
+      setError(null);
+      finishInitialLoad();
+    }, handleSubscriptionError);
+
+    const unsubscribeFerias = subscribeFerias(data => {
+      setFerias(data);
+      feriasReady = true;
+      setError(null);
+      finishInitialLoad();
+    }, handleSubscriptionError);
+
+    return () => {
+      unsubscribeTickets();
+      unsubscribeFerias();
+    };
+  }, [isEmployee]);
 
   // Handler para el cambio de año desde NavigationHeader
   const handleYearChange = (year: string | null) => {
@@ -500,8 +556,6 @@ export default function TicketsScreen() {
       Alert.alert('Éxito', result.message);
       if (creating && result.newTicketId) {
         router.push(`/tickets/${result.newTicketId}`);
-      } else {
-        await loadData();
       }
       setEditModalVisible(false);
       setCreating(false);
@@ -517,7 +571,6 @@ export default function TicketsScreen() {
       await updateTicket(ticket.idTicket, {
         estado: ticket.estado === 'ACTIVO' ? 'INACTIVO' : 'ACTIVO',
       });
-      await loadData();
     } catch (e) {
       console.error('Firestore Error:', e);
       Alert.alert('Error', (e as Error).message || 'No se pudo cambiar el estado');

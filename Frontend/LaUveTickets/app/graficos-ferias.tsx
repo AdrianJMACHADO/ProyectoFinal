@@ -9,7 +9,7 @@ import { ActivityIndicator, Alert, Dimensions, SafeAreaView, ScrollView, StyleSh
 import { PieChart } from 'react-native-chart-kit';
 import { NavigationHeaderRegistration } from '../components/NavigationHeaderRegistration';
 import { useNavigationChrome } from '../contexts/NavigationChromeContext';
-import { listFerias } from '../services/firestoreData';
+import { listFerias, subscribeFerias } from '../services/firestoreData';
 import { Feria } from './tickets';
 
 export default function GraficosFeriasScreen() {
@@ -26,7 +26,37 @@ export default function GraficosFeriasScreen() {
   const isLargeScreen = screenWidth > 768;
 
   useEffect(() => {
-    loadData();
+    setLoading(true);
+    setError(null);
+    const unsubscribe = subscribeFerias(
+      data => {
+        setFerias(data);
+        const years = Array.from(
+          new Set(
+            data.map(feria =>
+              new Date(feria.fecha).getFullYear().toString(),
+            ),
+          ),
+        ).sort((a, b) => Number(b) - Number(a));
+        const yearOptions = ['Todas las fechas', ...years];
+        setAvailableYears(yearOptions);
+        setSelectedYear(current =>
+          current && yearOptions.includes(current)
+            ? current
+            : years[0] ?? 'Todas las fechas',
+        );
+        setError(null);
+        setLoading(false);
+      },
+      subscriptionError => {
+        setError(
+          subscriptionError.message || 'No se pudieron sincronizar las ferias',
+        );
+        setLoading(false);
+      },
+    );
+
+    return unsubscribe;
   }, []);
 
   const loadData = async () => {

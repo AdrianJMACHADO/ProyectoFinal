@@ -11,7 +11,12 @@ import { NavigationActionsRegistration } from '../components/NavigationActionsRe
 import { NavigationHeaderRegistration } from '../components/NavigationHeaderRegistration';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigationChrome } from '../contexts/NavigationChromeContext';
-import { createFeria, listFerias, updateFeria } from '../services/firestoreData';
+import {
+  createFeria,
+  listFerias,
+  subscribeFerias,
+  updateFeria,
+} from '../services/firestoreData';
 
 // Caracteres especiales a filtrar de los inputs (para seguridad)
 const inputFilterRegex = /[;"'=\\<>]/g;
@@ -75,7 +80,37 @@ const FeriasScreen: React.FC = () => {
   };
 
   useEffect(() => {
-    loadFerias();
+    setLoading(true);
+    setError(null);
+    const unsubscribe = subscribeFerias(
+      data => {
+        setFerias(data);
+        const years = Array.from(
+          new Set(
+            data.map(feria =>
+              new Date(feria.fecha).getFullYear().toString(),
+            ),
+          ),
+        ).sort((a, b) => Number(b) - Number(a));
+        const yearOptions = ['Todas las fechas', ...years];
+        setAvailableYears(yearOptions);
+        setSelectedYear(current =>
+          current && yearOptions.includes(current)
+            ? current
+            : years[0] ?? 'Todas las fechas',
+        );
+        setError(null);
+        setLoading(false);
+      },
+      subscriptionError => {
+        setError(
+          subscriptionError.message || 'No se pudieron sincronizar las ferias.',
+        );
+        setLoading(false);
+      },
+    );
+
+    return unsubscribe;
   }, []);
 
   // Handler para el cambio de año desde NavigationHeader
@@ -145,7 +180,6 @@ const FeriasScreen: React.FC = () => {
       }
 
       Alert.alert('Éxito', `${editMode ? 'Feria actualizada' : 'Feria creada'} correctamente`);
-      await loadFerias();
       return true;
 
     } catch (e) {

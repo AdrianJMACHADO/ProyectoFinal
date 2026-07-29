@@ -8,7 +8,12 @@ import { PieChart } from 'react-native-chart-kit';
 import { ProgressBar } from 'react-native-paper';
 import { NavigationHeaderRegistration } from '../components/NavigationHeaderRegistration';
 import { useNavigationChrome } from '../contexts/NavigationChromeContext';
-import { listFerias, listTickets } from '../services/firestoreData';
+import {
+  listFerias,
+  listTickets,
+  subscribeFerias,
+  subscribeTickets,
+} from '../services/firestoreData';
 import { Feria, Ticket } from './tickets';
 
 export default function GraficosTicketsScreen() {
@@ -27,7 +32,50 @@ export default function GraficosTicketsScreen() {
   const theme = useTheme();
 
   useEffect(() => {
-    loadData();
+    setLoading(true);
+    setError(null);
+    let ticketsReady = false;
+    let feriasReady = false;
+    const finishInitialLoad = () => {
+      if (ticketsReady && feriasReady) setLoading(false);
+    };
+    const handleError = (subscriptionError: Error) => {
+      setError(subscriptionError.message || 'No se pudieron sincronizar los datos');
+      setLoading(false);
+    };
+
+    const unsubscribeTickets = subscribeTickets(data => {
+      setTickets(data);
+      ticketsReady = true;
+      setError(null);
+      finishInitialLoad();
+    }, handleError);
+
+    const unsubscribeFerias = subscribeFerias(data => {
+      setFerias(data);
+      const years = Array.from(
+        new Set(
+          data.map(feria =>
+            new Date(feria.fecha).getFullYear().toString(),
+          ),
+        ),
+      ).sort((a, b) => Number(b) - Number(a));
+      const yearOptions = ['Todas las fechas', ...years];
+      setAvailableYears(yearOptions);
+      setSelectedYear(current =>
+        current && yearOptions.includes(current)
+          ? current
+          : years[0] ?? 'Todas las fechas',
+      );
+      feriasReady = true;
+      setError(null);
+      finishInitialLoad();
+    }, handleError);
+
+    return () => {
+      unsubscribeTickets();
+      unsubscribeFerias();
+    };
   }, []);
 
   const loadData = async () => {
