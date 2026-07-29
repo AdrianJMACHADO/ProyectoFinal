@@ -45,6 +45,7 @@ export type Feria = {
   idFeria: number;
   nombre: string;
   fecha: string;
+  estado?: 'ACTIVO' | 'INACTIVO';
 };
 
 export default function TicketsScreen() {
@@ -425,11 +426,10 @@ export default function TicketsScreen() {
         .map((ticket: Ticket) => new Date(ticket.fecha_creacion!).getFullYear().toString())));
       years.sort((a, b) => parseInt(b) - parseInt(a));
       setAvailableYears(['Todas las fechas', ...years]);
-      if (years.length > 0) {
-        setSelectedYear(years[0]);
-      } else {
-        setSelectedYear('Todas las fechas');
-      }
+      const currentYear = String(new Date().getFullYear());
+      setSelectedYear(
+        years.includes(currentYear) ? currentYear : 'Todas las fechas',
+      );
       setError(null);
     } catch (e) {
       // console.error('Error al cargar los datos:', e);
@@ -476,7 +476,9 @@ export default function TicketsScreen() {
       setSelectedYear(current =>
         current && yearOptions.includes(current)
           ? current
-          : years[0] ?? 'Todas las fechas',
+          : years.includes(String(new Date().getFullYear()))
+            ? String(new Date().getFullYear())
+            : 'Todas las fechas',
       );
       ticketsReady = true;
       setError(null);
@@ -893,7 +895,11 @@ export default function TicketsScreen() {
         }}
         onSave={handleModalSave}
         ticket={selectedTicket || undefined}
-        ferias={ferias}
+        ferias={
+          creating
+            ? ferias.filter(feria => (feria.estado ?? 'ACTIVO') === 'ACTIVO')
+            : ferias
+        }
         isCreating={creating}
         isLoading={editModalLoading}
         error={editModalError}

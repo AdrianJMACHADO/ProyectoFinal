@@ -19,6 +19,7 @@ export type FeriaRecord = {
   idFeria: number;
   nombre: string;
   fecha: string;
+  estado?: 'ACTIVO' | 'INACTIVO';
 };
 
 export type TicketRecord = {
@@ -84,7 +85,7 @@ export const subscribeFerias = (
 export const createFeria = async (data: NewFeria): Promise<FeriaRecord> => {
   const db = getFirebaseDb();
   const idFeria = await allocateNumericId(FERIAS);
-  const feria: FeriaRecord = { idFeria, ...data };
+  const feria: FeriaRecord = { idFeria, estado: 'ACTIVO', ...data };
   await runTransaction(db, async (transaction) => {
     transaction.set(doc(db, FERIAS, String(idFeria)), feria);
   });

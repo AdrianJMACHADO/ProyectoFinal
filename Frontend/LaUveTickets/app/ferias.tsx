@@ -26,6 +26,7 @@ interface Feria {
   idFeria: number;
   nombre: string;
   fecha: string;
+  estado?: 'ACTIVO' | 'INACTIVO';
 }
 
 const FeriasScreen: React.FC = () => {
@@ -63,11 +64,14 @@ const FeriasScreen: React.FC = () => {
       const years: string[] = Array.from(new Set(data.map((feria: Feria) => new Date(feria.fecha).getFullYear().toString())));
       years.sort((a, b) => parseInt(b) - parseInt(a));
       setAvailableYears(['Todas las fechas', ...years]);
-      if (selectedYear === null && years.length > 0) {
-        setSelectedYear(years[0]);
-      } else {
-        setSelectedYear('Todas las fechas');
-      }
+      const currentYear = String(new Date().getFullYear());
+      setSelectedYear(current =>
+        current && ['Todas las fechas', ...years].includes(current)
+          ? current
+          : years.includes(currentYear)
+            ? currentYear
+            : 'Todas las fechas',
+      );
       setError(null);
     } catch (e) {
       // console.error('Error al cargar los datos:', e);
@@ -97,7 +101,9 @@ const FeriasScreen: React.FC = () => {
         setSelectedYear(current =>
           current && yearOptions.includes(current)
             ? current
-            : years[0] ?? 'Todas las fechas',
+            : years.includes(String(new Date().getFullYear()))
+              ? String(new Date().getFullYear())
+              : 'Todas las fechas',
         );
         setError(null);
         setLoading(false);
@@ -192,26 +198,75 @@ const FeriasScreen: React.FC = () => {
     }
   };
 
+  const toggleFeriaEstado = async (feria: Feria) => {
+    const nextEstado =
+      (feria.estado ?? 'ACTIVO') === 'ACTIVO' ? 'INACTIVO' : 'ACTIVO';
+    try {
+      await updateFeria(feria.idFeria, { estado: nextEstado });
+    } catch (stateError) {
+      Alert.alert(
+        'Error',
+        (stateError as Error).message ||
+          `No se pudo ${nextEstado === 'ACTIVO' ? 'activar' : 'inactivar'} la feria`,
+      );
+    }
+  };
+
   // Renderizar feria
-  const renderFeria = ({ item }: { item: Feria }) => (
-    <ThemedView type="card" style={styles.feriaItem}>
+  const renderFeria = ({ item }: { item: Feria }) => {
+    const isActive = (item.estado ?? 'ACTIVO') === 'ACTIVO';
+    return (
+    <ThemedView
+      type="card"
+      style={[
+        styles.feriaItem,
+        {
+          borderLeftColor: isActive ? theme.success : theme.error,
+          opacity: isActive ? 1 : 0.72,
+        },
+      ]}
+    >
       <View style={styles.feriaContent}>
         <View style={styles.feriaInfo}>
           <ThemedText type="title" style={styles.feriaTitle}>{item.nombre}</ThemedText>
           <ThemedText style={styles.feriaDate}>
             {format(new Date(item.fecha), 'dd/MM/yyyy')}
           </ThemedText>
+          <ThemedText
+            style={[
+              styles.feriaEstado,
+              { color: isActive ? theme.success : theme.error },
+            ]}
+          >
+            {isActive ? 'ACTIVA' : 'INACTIVA'}
+          </ThemedText>
         </View>
-        <TouchableOpacity 
-          style={[styles.editButton, { backgroundColor: theme.buttonPrimary }]} 
-          onPress={() => openEditModal(item)}
-        >
-          <Ionicons name="pencil" size={20} color="white" />
-          <ThemedText type="button" style={styles.editButtonText}>Editar</ThemedText>
-        </TouchableOpacity>
+        <View style={styles.feriaActions}>
+          <TouchableOpacity
+            style={[styles.stateButton, { backgroundColor: isActive ? theme.error : theme.success }]}
+            onPress={() => toggleFeriaEstado(item)}
+          >
+            <Ionicons
+              name={isActive ? 'pause-circle-outline' : 'play-circle-outline'}
+              size={19}
+              color="white"
+            />
+            <ThemedText type="button" style={styles.editButtonText}>
+              {isActive ? 'Inactivar' : 'Activar'}
+            </ThemedText>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.editButton, { backgroundColor: theme.buttonPrimary }]}
+            onPress={() => openEditModal(item)}
+          >
+            <Ionicons name="pencil" size={20} color="white" />
+            <ThemedText type="button" style={styles.editButtonText}>Editar</ThemedText>
+          </TouchableOpacity>
+        </View>
       </View>
     </ThemedView>
-  );
+    );
+  };
 
   // Filtrar ferias por año y término de búsqueda
   const filteredFerias = ferias.filter(feria => {
@@ -279,6 +334,7 @@ const FeriasScreen: React.FC = () => {
       marginBottom: 16,
       borderRadius: 12,
       padding: 16,
+      borderLeftWidth: 4,
       elevation: 3,
       shadowColor: theme.shadow,
       shadowOffset: { width: 0, height: 3 },
@@ -300,6 +356,23 @@ const FeriasScreen: React.FC = () => {
     feriaDate: {
       fontSize: 14,
       opacity: 0.7,
+    },
+    feriaEstado: {
+      marginTop: 6,
+      fontSize: 12,
+      fontWeight: '800',
+    },
+    feriaActions: {
+      gap: 8,
+    },
+    stateButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 10,
+      borderRadius: 8,
+      gap: 6,
+      minWidth: 120,
     },
     editButton: {
       flexDirection: 'row',

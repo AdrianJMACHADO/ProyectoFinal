@@ -43,7 +43,9 @@ export default function GraficosFeriasScreen() {
         setSelectedYear(current =>
           current && yearOptions.includes(current)
             ? current
-            : years[0] ?? 'Todas las fechas',
+            : years.includes(String(new Date().getFullYear()))
+              ? String(new Date().getFullYear())
+              : 'Todas las fechas',
         );
         setError(null);
         setLoading(false);
@@ -68,11 +70,14 @@ export default function GraficosFeriasScreen() {
       const years: string[] = Array.from(new Set(data.map((feria: Feria) => new Date(feria.fecha).getFullYear().toString())));
       years.sort((a, b) => parseInt(b) - parseInt(a));
       setAvailableYears(['Todas las fechas', ...years]);
-      if (selectedYear === null && years.length > 0) {
-        setSelectedYear(years[0]);
-      } else {
-        setSelectedYear('Todas las fechas');
-      }
+      const currentYear = String(new Date().getFullYear());
+      setSelectedYear(current =>
+        current && ['Todas las fechas', ...years].includes(current)
+          ? current
+          : years.includes(currentYear)
+            ? currentYear
+            : 'Todas las fechas',
+      );
       setError(null);
     } catch (error) {
       // console.error('Error al cargar los datos:', error);
