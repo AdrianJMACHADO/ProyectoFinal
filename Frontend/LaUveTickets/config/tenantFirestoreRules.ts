@@ -33,7 +33,9 @@ service cloud.firestore {
     }
 
     match /configuracion/system {
-      allow get: if activeUser();
+      // Solo permite comprobar si el negocio ya fue inicializado.
+      // Nunca se guardan contraseñas ni correos en este documento.
+      allow get: if true;
       allow create: if signedIn()
         && !exists(/databases/$(database)/documents/configuracion/system)
         && request.resource.data.ownerUid == request.auth.uid;
@@ -97,4 +99,3 @@ service cloud.firestore {
     }
   }
 }`;
-

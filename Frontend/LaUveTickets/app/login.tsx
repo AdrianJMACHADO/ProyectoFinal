@@ -9,6 +9,7 @@ import { ActivityIndicator, Alert, Keyboard, Modal, Platform, StyleSheet, TextIn
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../contexts/AuthContext';
 import { useFirebaseConfig } from '../contexts/FirebaseConfigContext';
+import { hasInitialOwner } from '../services/userProfiles';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -19,6 +20,9 @@ export default function LoginScreen() {
   const [inputErrors, setInputErrors] = useState<{ email?: boolean; password?: boolean }>({});
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [connectionMenuVisible, setConnectionMenuVisible] = useState(false);
+  const [ownerState, setOwnerState] = useState<
+    'loading' | 'new' | 'initialized' | 'unavailable'
+  >('loading');
   const { login } = useAuth();
   const { config, disconnect } = useFirebaseConfig();
   const router = useRouter();
@@ -41,6 +45,23 @@ export default function LoginScreen() {
       }
     }
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    setOwnerState('loading');
+    hasInitialOwner()
+      .then(initialized => {
+        if (active) setOwnerState(initialized ? 'initialized' : 'new');
+      })
+      .catch(() => {
+        // Ante cualquier error se ofrece únicamente recuperación. Es la opción
+        // segura porque nunca puede crear un segundo propietario.
+        if (active) setOwnerState('unavailable');
+      });
+    return () => {
+      active = false;
+    };
+  }, [config?.projectId]);
 
   const handleLogin = async () => {
     setLoginError(null);
@@ -302,11 +323,17 @@ export default function LoginScreen() {
           <TouchableOpacity
             style={{ paddingVertical: 16, alignItems: 'center' }}
             onPress={() => router.push('/registro-admin' as any)}
-            disabled={loading}
+            disabled={loading || ownerState === 'loading'}
           >
-            <ThemedText style={{ color: theme.buttonPrimary, fontWeight: '600' }}>
-              Crear o recuperar superadministrador
-            </ThemedText>
+            {ownerState === 'loading' ? (
+              <ActivityIndicator size="small" color={theme.buttonPrimary} />
+            ) : (
+              <ThemedText style={{ color: theme.buttonPrimary, fontWeight: '600' }}>
+                {ownerState === 'new'
+                  ? 'Crear superadministrador inicial'
+                  : 'Recuperar cuenta de superadministrador'}
+              </ThemedText>
+            )}
           </TouchableOpacity>
         </ThemedView>
 

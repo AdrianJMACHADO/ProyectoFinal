@@ -2,6 +2,7 @@ import {
   Auth,
   User,
   createUserWithEmailAndPassword,
+  deleteUser,
   getAuth,
   signOut,
 } from 'firebase/auth';
@@ -41,6 +42,13 @@ export interface CreateManagedUserInput {
   role: Exclude<UserRole, 'SUPERADMIN'>;
 }
 
+export const hasInitialOwner = async (): Promise<boolean> => {
+  const snapshot = await getDoc(
+    doc(getFirebaseDb(), 'configuracion', 'system'),
+  );
+  return snapshot.exists();
+};
+
 export const getUserProfile = async (
   user: User,
 ): Promise<UserProfile | null> => {
@@ -69,6 +77,7 @@ export const createInitialOwnerProfile = async (
   batch.set(systemRef, {
     ownerUid: user.uid,
     nombreNegocio: nombreNegocio?.trim() || null,
+    initialized: true,
     initializedAt: serverTimestamp(),
     schemaVersion: 1,
   });
@@ -98,6 +107,7 @@ export const registerInitialOwner = async (
     const profile = await createInitialOwnerProfile(credential.user, nombre);
     return { user: credential.user, profile };
   } catch (error) {
+    await deleteUser(credential.user).catch(() => undefined);
     await signOut(getFirebaseAuth());
     throw error;
   }

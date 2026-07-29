@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/hooks/useThemeColor';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -16,6 +16,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { hasInitialOwner } from '@/services/userProfiles';
 
 export default function RegisterOwnerScreen() {
   const [nombre, setNombre] = useState('');
@@ -26,13 +27,52 @@ export default function RegisterOwnerScreen() {
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [mode, setMode] = useState<'create' | 'recover'>('create');
+  const [checkingOwner, setCheckingOwner] = useState(true);
+  const [ownerCheckUnavailable, setOwnerCheckUnavailable] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
   const { createOwner, recoverPassword, logout } = useAuth();
   const theme = useTheme();
   const router = useRouter();
 
+  useEffect(() => {
+    let active = true;
+    hasInitialOwner()
+      .then(initialized => {
+        if (!active) return;
+        setMode(initialized ? 'recover' : 'create');
+        setOwnerCheckUnavailable(false);
+      })
+      .catch(() => {
+        if (!active) return;
+        // El modo seguro ante un fallo de lectura es recuperación.
+        setMode('recover');
+        setOwnerCheckUnavailable(true);
+      })
+      .finally(() => {
+        if (active) setCheckingOwner(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const handleSubmit = async () => {
     setError(null);
+    try {
+      if (await hasInitialOwner()) {
+        setMode('recover');
+        setError(
+          'Este negocio ya tiene superadministrador. Utiliza la recuperación de cuenta.',
+        );
+        return;
+      }
+    } catch {
+      setMode('recover');
+      setError(
+        'No se pudo verificar la configuración. Por seguridad solo está disponible la recuperación.',
+      );
+      return;
+    }
     if (!nombre.trim() || !email.trim() || !password) {
       setError('Completa todos los campos');
       return;
@@ -170,6 +210,15 @@ export default function RegisterOwnerScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <ThemedView type="card" style={styles.card}>
+            {checkingOwner ? (
+              <>
+                <ActivityIndicator size="large" color={theme.buttonPrimary} />
+                <ThemedText style={styles.subtitle}>
+                  Comprobando la configuración del negocio…
+                </ThemedText>
+              </>
+            ) : (
+            <>
             <ThemedText type="title" style={styles.title}>
               {mode === 'create'
                 ? 'Crea el administrador propietario'
@@ -181,38 +230,12 @@ export default function RegisterOwnerScreen() {
                 : 'Te enviaremos un enlace al correo del superadministrador para elegir una contraseña nueva.'}
             </ThemedText>
 
-            <View style={styles.modeRow}>
-              <TouchableOpacity
-                style={[
-                  styles.modeButton,
-                  mode === 'create' && { borderColor: theme.buttonPrimary },
-                ]}
-                onPress={() => {
-                  setMode('create');
-                  setError(null);
-                  setSuccess(null);
-                }}
-              >
-                <ThemedText style={mode === 'create' ? styles.link : undefined}>
-                  Primera vez
-                </ThemedText>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.modeButton,
-                  mode === 'recover' && { borderColor: theme.buttonPrimary },
-                ]}
-                onPress={() => {
-                  setMode('recover');
-                  setError(null);
-                  setSuccess(null);
-                }}
-              >
-                <ThemedText style={mode === 'recover' ? styles.link : undefined}>
-                  Recuperar cuenta
-                </ThemedText>
-              </TouchableOpacity>
-            </View>
+            {ownerCheckUnavailable && (
+              <ThemedText style={styles.error}>
+                No se pudo comprobar el estado del negocio. Por seguridad, solo
+                puedes recuperar la cuenta existente.
+              </ThemedText>
+            )}
 
             {mode === 'create' && <View style={styles.inputRow}>
               <Ionicons name="person-outline" size={20} color={theme.placeholder} />
@@ -286,6 +309,8 @@ export default function RegisterOwnerScreen() {
                 </ThemedText>
               )}
             </TouchableOpacity>
+            </>
+            )}
 
             <TouchableOpacity
               style={styles.linkButton}
