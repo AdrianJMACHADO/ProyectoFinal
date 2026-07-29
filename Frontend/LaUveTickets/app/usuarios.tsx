@@ -133,11 +133,14 @@ export default function UsersScreen() {
     content: { flex: 1, padding: 16 },
     titleRow: {
       flexDirection: 'row',
-      justifyContent: 'space-between',
+      justifyContent: 'center',
       alignItems: 'center',
+      minHeight: 46,
       marginBottom: 16,
     },
     addButton: {
+      position: 'absolute',
+      right: 0,
       flexDirection: 'row',
       alignItems: 'center',
       gap: 6,

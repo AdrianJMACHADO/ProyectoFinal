@@ -71,6 +71,10 @@ export default function FirebaseSetupScreen() {
     accessToken: string;
     idToken: string;
   } | null>(null);
+  const [selectedGoogleAccount, setSelectedGoogleAccount] = useState<{
+    name: string;
+    email: string;
+  } | null>(null);
   const [progress, setProgress] = useState('Preparando el asistente…');
   const progressRef = useRef('Preparando el asistente…');
   const [error, setError] = useState<string | null>(null);
@@ -140,57 +144,95 @@ export default function FirebaseSetupScreen() {
     );
   };
 
+  const authenticateGoogle = async (forceAccountSelection = false) => {
+    if (Constants.appOwnership === 'expo') {
+      throw new Error(
+        'Esta función necesita la APK de LaUveTickets y no puede ejecutarse dentro de Expo Go.',
+      );
+    }
+
+    const { GoogleSignin } = require(
+      '@react-native-google-signin/google-signin',
+    ) as typeof import('@react-native-google-signin/google-signin');
+    GoogleSignin.configure({ scopes: [GOOGLE_CLOUD_SCOPE] });
+    await GoogleSignin.hasPlayServices({
+      showPlayServicesUpdateDialog: true,
+    });
+
+    if (forceAccountSelection) {
+      // Solo se cierra la sesión local para que Google vuelva a mostrar su
+      // selector. La cuenta no se revoca ni se elimina del dispositivo.
+      await GoogleSignin.signOut().catch(() => undefined);
+    }
+
+    const result = await GoogleSignin.signIn();
+    if (result.type !== 'success') return null;
+
+    if (!result.data.scopes.includes(GOOGLE_CLOUD_SCOPE)) {
+      const authorization = await GoogleSignin.addScopes({
+        scopes: [GOOGLE_CLOUD_SCOPE],
+      });
+      if (
+        !authorization
+        || authorization.type !== 'success'
+        || !authorization.data
+        || !authorization.data.scopes.includes(GOOGLE_CLOUD_SCOPE)
+      ) {
+        throw new Error(
+          'Google no concedió el permiso para acceder a tu espacio privado',
+        );
+      }
+    }
+
+    const googleTokens = await GoogleSignin.getTokens();
+    const account = {
+      name: result.data.user.name || result.data.user.email || 'Propietario',
+      email: result.data.user.email,
+    };
+    const nextTokens = {
+      accessToken: googleTokens.accessToken,
+      idToken: googleTokens.idToken,
+    };
+    setOwnerName(account.name);
+    setAccessEmail(account.email);
+    setSelectedGoogleAccount(account);
+    setTokens(nextTokens);
+    return nextTokens;
+  };
+
+  const chooseGoogleAccount = async () => {
+    setError(null);
+    setCanRequestAccess(false);
+    setTokens(null);
+    setSelectedGoogleAccount(null);
+    try {
+      await authenticateGoogle(true);
+    } catch (googleError) {
+      const message = (googleError as Error).message;
+      if (message.includes('Expo Go') || message.includes('APK')) {
+        setError(message);
+        return;
+      }
+      setCanRequestAccess(true);
+      setError(
+        'No puedes acceder con esta cuenta porque LaUveTickets está en periodo de pruebas. Contacta con soporte para solicitar acceso.',
+      );
+    }
+  };
+
   const connectGoogle = async () => {
     setError(null);
     setCanRequestAccess(false);
-    if (Constants.appOwnership === 'expo') {
-      setError(
-        'Esta función necesita la APK de LaUveTickets y no puede ejecutarse dentro de Expo Go.',
-      );
-      return;
-    }
-
     try {
-      // Este módulo contiene código nativo y no existe dentro de Expo Go.
-      // Se carga después de la comprobación para que el resto del asistente
-      // siga siendo visible y pueda explicar que hace falta una APK propia.
-      const { GoogleSignin } = require(
-        '@react-native-google-signin/google-signin',
-      ) as typeof import('@react-native-google-signin/google-signin');
-      GoogleSignin.configure({
-        scopes: [GOOGLE_CLOUD_SCOPE],
-      });
-      await GoogleSignin.hasPlayServices({
-        showPlayServicesUpdateDialog: true,
-      });
-      const result = await GoogleSignin.signIn();
-      if (result.type !== 'success') {
-        return;
-      }
-      if (!result.data.scopes.includes(GOOGLE_CLOUD_SCOPE)) {
-        const authorization = await GoogleSignin.addScopes({
-          scopes: [GOOGLE_CLOUD_SCOPE],
-        });
-        if (
-          !authorization ||
-          authorization.type !== 'success' ||
-          !authorization.data.scopes.includes(GOOGLE_CLOUD_SCOPE)
-        ) {
-          throw new Error(
-            'Google no concedió el permiso para crear tu espacio privado',
-          );
-        }
-      }
-      const googleTokens = await GoogleSignin.getTokens();
-      setOwnerName(
-        result.data.user.name || result.data.user.email || 'Propietario',
-      );
-      setTokens({
-        accessToken: googleTokens.accessToken,
-        idToken: googleTokens.idToken,
-      });
+      const currentTokens = tokens || await authenticateGoogle(false);
+      if (!currentTokens) return;
       setStep('business');
     } catch (googleError) {
+      const message = (googleError as Error).message;
+      if (message.includes('Expo Go') || message.includes('APK')) {
+        setError(message);
+        return;
+      }
       setCanRequestAccess(true);
       setError(
         'No puedes acceder con esta cuenta porque LaUveTickets está en periodo de pruebas. Contacta con soporte para solicitar acceso.',
@@ -201,55 +243,25 @@ export default function FirebaseSetupScreen() {
   const recoverBusinesses = async () => {
     setError(null);
     setCanRequestAccess(false);
-    if (Constants.appOwnership === 'expo') {
-      setError(
-        'Esta función necesita la APK de LaUveTickets y no puede ejecutarse dentro de Expo Go.',
-      );
-      return;
-    }
-
     setStep('recovering');
     try {
-      const { GoogleSignin } = require(
-        '@react-native-google-signin/google-signin',
-      ) as typeof import('@react-native-google-signin/google-signin');
-      GoogleSignin.configure({ scopes: [GOOGLE_CLOUD_SCOPE] });
-      await GoogleSignin.hasPlayServices({
-        showPlayServicesUpdateDialog: true,
-      });
-      const result = await GoogleSignin.signIn();
-      if (result.type !== 'success') {
+      const currentTokens = tokens || await authenticateGoogle(false);
+      if (!currentTokens) {
         setStep('welcome');
         return;
       }
-      if (!result.data.scopes.includes(GOOGLE_CLOUD_SCOPE)) {
-        const authorization = await GoogleSignin.addScopes({
-          scopes: [GOOGLE_CLOUD_SCOPE],
-        });
-        if (
-          !authorization
-          ||
-          authorization.type !== 'success'
-          || !authorization.data
-          || !authorization.data.scopes.includes(GOOGLE_CLOUD_SCOPE)
-        ) {
-          throw new Error(
-            'Google no concedió permiso para buscar tus negocios',
-          );
-        }
-      }
-      const googleTokens = await GoogleSignin.getTokens();
-      setTokens({
-        accessToken: googleTokens.accessToken,
-        idToken: googleTokens.idToken,
-      });
       const projects = await listRecoverableFirebaseProjects(
-        googleTokens.accessToken,
+        currentTokens.accessToken,
       );
       setRecoverableProjects(projects);
       setStep('projects');
     } catch (recoveryError) {
       setStep('welcome');
+      const message = (recoveryError as Error).message;
+      if (message.includes('Expo Go') || message.includes('APK')) {
+        setError(message);
+        return;
+      }
       setCanRequestAccess(true);
       setError(
         'No puedes acceder con esta cuenta porque LaUveTickets está en periodo de pruebas. Contacta con soporte para solicitar acceso.',
@@ -468,6 +480,21 @@ export default function FirebaseSetupScreen() {
         },
         benefit: { flexDirection: 'row', alignItems: 'center', gap: 10 },
         benefitText: { flex: 1, opacity: 0.82 },
+        accountCard: {
+          minHeight: 58,
+          paddingHorizontal: 14,
+          paddingVertical: 10,
+          borderWidth: 1,
+          borderColor: theme.border,
+          borderRadius: 13,
+          backgroundColor: `${theme.buttonPrimary}10`,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 11,
+        },
+        accountDetails: { flex: 1 },
+        accountName: { fontWeight: '700' },
+        accountEmail: { opacity: 0.68, fontSize: 13, marginTop: 2 },
         input: {
           minHeight: 52,
           borderWidth: 1,
@@ -627,6 +654,48 @@ export default function FirebaseSetupScreen() {
                     </TouchableOpacity>
                   </>
                 )}
+                {selectedGoogleAccount && (
+                  <View style={styles.accountCard}>
+                    <Ionicons
+                      name="person-circle-outline"
+                      size={30}
+                      color={theme.buttonPrimary}
+                    />
+                    <View style={styles.accountDetails}>
+                      <ThemedText style={styles.accountName}>
+                        {selectedGoogleAccount.name}
+                      </ThemedText>
+                      <ThemedText style={styles.accountEmail}>
+                        {selectedGoogleAccount.email}
+                      </ThemedText>
+                    </View>
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={22}
+                      color="#38b86b"
+                    />
+                  </View>
+                )}
+                <TouchableOpacity
+                  style={styles.secondary}
+                  onPress={chooseGoogleAccount}
+                >
+                  <View style={styles.buttonContent}>
+                    <Ionicons
+                      name="swap-horizontal-outline"
+                      size={21}
+                      color={theme.buttonPrimary}
+                    />
+                    <ThemedText
+                      type="button"
+                      style={{ color: theme.buttonPrimary }}
+                    >
+                      {selectedGoogleAccount
+                        ? 'Cambiar cuenta de Google'
+                        : 'Elegir cuenta de Google'}
+                    </ThemedText>
+                  </View>
+                </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.primary}
                   onPress={connectGoogle}
@@ -634,7 +703,9 @@ export default function FirebaseSetupScreen() {
                   <View style={styles.buttonContent}>
                     <Ionicons name="logo-google" size={21} color="white" />
                     <ThemedText type="button" style={styles.white}>
-                      Continuar con Google
+                      {selectedGoogleAccount
+                        ? 'Crear un negocio nuevo'
+                        : 'Continuar con Google'}
                     </ThemedText>
                   </View>
                 </TouchableOpacity>
