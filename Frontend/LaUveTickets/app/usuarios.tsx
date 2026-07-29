@@ -24,8 +24,10 @@ import {
   StyleSheet,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
+import { NavigationActionsRegistration } from '../components/NavigationActionsRegistration';
 
 const emptyForm: CreateManagedUserInput = {
   nombre: '',
@@ -49,6 +51,14 @@ export default function UsersScreen() {
     password?: string;
   }>({});
   const theme = useTheme();
+  const { width } = useWindowDimensions();
+  const isMobile = width < 600;
+
+  const openCreateModal = () => {
+    setError(null);
+    setFieldErrors({});
+    setModalVisible(true);
+  };
 
   const loadUsers = async () => {
     setLoading(true);
@@ -236,20 +246,22 @@ export default function UsersScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <NavigationHeaderRegistration tab="Usuarios" />
+      <NavigationActionsRegistration
+        tab="Usuarios"
+        onCreate={isMobile ? openCreateModal : undefined}
+      />
       <View style={styles.content}>
         <View style={styles.titleRow}>
           <ThemedText type="title">Usuarios</ThemedText>
-          <TouchableOpacity
-            style={styles.addButton}
-            onPress={() => {
-              setError(null);
-              setFieldErrors({});
-              setModalVisible(true);
-            }}
-          >
-            <Ionicons name="person-add" size={19} color="white" />
-            <ThemedText type="button" style={styles.white}>Crear</ThemedText>
-          </TouchableOpacity>
+          {!isMobile && (
+            <TouchableOpacity
+              style={styles.addButton}
+              onPress={openCreateModal}
+            >
+              <Ionicons name="person-add" size={19} color="white" />
+              <ThemedText type="button" style={styles.white}>Crear</ThemedText>
+            </TouchableOpacity>
+          )}
         </View>
 
         {loading ? (

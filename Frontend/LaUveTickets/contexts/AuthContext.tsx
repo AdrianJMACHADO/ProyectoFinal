@@ -30,6 +30,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const auth = getFirebaseAuth();
     // Configurar el listener de autenticación
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      setLoading(true);
       setUser(user);
       setProfile(null);
       setProfileError(null);
@@ -80,12 +81,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Función de login
   const login = async (email: string, password: string) => {
     const auth = getFirebaseAuth();
-    const userCredential = await signInWithEmailAndPassword(
-      auth,
-      email.trim(),
-      password,
-    );
-    setUser(userCredential.user);
+    setLoading(true);
+    try {
+      const userCredential = await signInWithEmailAndPassword(
+        auth,
+        email.trim(),
+        password,
+      );
+      setUser(userCredential.user);
+    } catch (error) {
+      setLoading(false);
+      throw error;
+    }
   };
 
   // Función de logout

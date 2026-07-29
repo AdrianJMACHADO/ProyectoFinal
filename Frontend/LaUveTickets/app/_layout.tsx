@@ -18,7 +18,18 @@ function RootLayoutNav() {
 
   // Si está cargando, no mostrar nada
   if (loading) {
-    return null;
+    return (
+      <View
+        style={{
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: theme.background,
+        }}
+      >
+        <ActivityIndicator size="large" color={theme.buttonPrimary} />
+      </View>
+    );
   }
 
   if (user && !profile) {

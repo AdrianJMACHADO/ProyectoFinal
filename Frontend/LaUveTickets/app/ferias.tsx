@@ -7,7 +7,7 @@ import { format } from 'date-fns';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, SafeAreaView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { NavigationActionsRegistration } from '../components/NavigationActionsRegistration';
 import { NavigationHeaderRegistration } from '../components/NavigationHeaderRegistration';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigationChrome } from '../contexts/NavigationChromeContext';
@@ -28,8 +28,6 @@ const FeriasScreen: React.FC = () => {
   const router = useRouter();
   const { logout } = useAuth();
   const theme = useTheme();
-  const insets = useSafeAreaInsets();
-  const floatingActionsBottom = Math.max(insets.bottom, 8) + 86;
   const screenWidth = Dimensions.get('window').width;
   const isMobile = screenWidth < 600;
 
@@ -289,21 +287,6 @@ const FeriasScreen: React.FC = () => {
     emptyText: {
       textAlign: 'center',
     },
-    fab: {
-      position: 'absolute',
-      right: 16,
-      bottom: floatingActionsBottom,
-      width: 56,
-      height: 56,
-      borderRadius: 28,
-      justifyContent: 'center',
-      alignItems: 'center',
-      elevation: 4,
-      shadowColor: theme.shadow,
-      shadowOffset: { width: 0, height: 3 },
-      shadowOpacity: 0.2,
-      shadowRadius: 4,
-    },
     modalOverlay: {
       flex: 1,
       justifyContent: 'center',
@@ -418,6 +401,10 @@ const FeriasScreen: React.FC = () => {
         selectedYear={selectedYear}
         onYearChange={handleYearChange}
       />
+      <NavigationActionsRegistration
+        tab="Ferias"
+        onCreate={isMobile ? openCreateModal : undefined}
+      />
 
       <View style={styles.content}>
         <View style={styles.searchContainer}>
@@ -466,14 +453,6 @@ const FeriasScreen: React.FC = () => {
           </View>
         )}
 
-        {isMobile && (
-          <TouchableOpacity
-            style={[styles.fab, { backgroundColor: '#FFC107' }]}
-            onPress={openCreateModal}
-          >
-            <Ionicons name="add" size={24} color="white" />
-          </TouchableOpacity>
-        )}
       </View>
 
       {/* Modal de creación/edición */}

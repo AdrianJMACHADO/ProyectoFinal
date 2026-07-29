@@ -8,7 +8,7 @@ import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, FlatList, Image, Platform, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { NavigationActionsRegistration } from '../components/NavigationActionsRegistration';
 import { NavigationHeaderRegistration } from '../components/NavigationHeaderRegistration';
 import { QRScannerModal } from '../components/QRScannerModal';
 import { createTicketPdf, QRGenerator, ticketQrValue } from '../components/QRGenerator';
@@ -104,8 +104,6 @@ export default function TicketsScreen() {
   const [editModalError, setEditModalError] = useState<string | null>(null);
 
   const theme = useTheme();
-  const insets = useSafeAreaInsets();
-  const floatingActionsBottom = Math.max(insets.bottom, 8) + 86;
 
   const styles = StyleSheet.create({
     container: {
@@ -222,36 +220,6 @@ export default function TicketsScreen() {
     },
     buttonText: {
       color: 'white',
-    },
-    fab: {
-      position: 'absolute',
-      right: 16,
-      bottom: floatingActionsBottom,
-      width: 56,
-      height: 56,
-      borderRadius: 28,
-      justifyContent: 'center',
-      alignItems: 'center',
-      elevation: 4,
-      shadowColor: theme.shadow,
-      shadowOffset: { width: 0, height: 3 },
-      shadowOpacity: 0.2,
-      shadowRadius: 4,
-    },
-    scannerFab: {
-      position: 'absolute',
-      left: 16,
-      bottom: floatingActionsBottom,
-      width: 56,
-      height: 56,
-      borderRadius: 28,
-      justifyContent: 'center',
-      alignItems: 'center',
-      elevation: 4,
-      shadowColor: theme.shadow,
-      shadowOffset: { width: 0, height: 3 },
-      shadowOpacity: 0.2,
-      shadowRadius: 4,
     },
     employeeWelcome: {
       flex: 1,
@@ -720,6 +688,22 @@ export default function TicketsScreen() {
         availableYears={availableYears}
         selectedYear={selectedYear}
       />
+      <NavigationActionsRegistration
+        tab="Tickets"
+        onCreate={
+          !isEmployee && isMobile
+            ? () => {
+                setSelectedTicket(null);
+                setCreating(true);
+                setEditModalVisible(true);
+              }
+            : undefined
+        }
+        onScan={() => {
+          resetTicketsViewport();
+          setScannerVisible(true);
+        }}
+      />
 
       <View style={styles.content}>
         {!isEmployee && <View style={styles.searchContainer}>
@@ -842,34 +826,9 @@ export default function TicketsScreen() {
               contentContainerStyle={styles.listContainer}
             />
 
-            {isMobile && (
-              <>
-                <TouchableOpacity
-                  accessibilityLabel="Crear ticket"
-                  style={[styles.fab, { backgroundColor: '#FFC107' }]}
-                  onPress={() => {
-                    setSelectedTicket(null);
-                    setCreating(true);
-                    setEditModalVisible(true);
-                  }}
-                >
-                  <Ionicons name="add" size={24} color="white" />
-                </TouchableOpacity>
-              </>
-            )}
           </>
         )}
 
-        <TouchableOpacity
-          accessibilityLabel="Escanear código QR"
-          style={[styles.scannerFab, { backgroundColor: theme.buttonPrimary }]}
-          onPress={() => {
-            resetTicketsViewport();
-            setScannerVisible(true);
-          }}
-        >
-          <Ionicons name="scan" size={26} color="white" />
-        </TouchableOpacity>
       </View>
 
       <TicketEditModal

@@ -18,6 +18,8 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -143,10 +145,13 @@ function FloatingTabBar(props: MaterialTopTabBarProps) {
                   backgroundColor: `${theme.buttonPrimary}1F`,
                   transform: [
                     {
-                      translateX: Animated.multiply(
-                        props.position,
-                        (tabsWidth - 10) / routeCount,
-                      ),
+                      translateX:
+                        routeCount === 1
+                          ? 0
+                          : Animated.multiply(
+                              props.position,
+                              (tabsWidth - 10) / routeCount,
+                            ),
                     },
                   ],
                 },
@@ -255,6 +260,92 @@ function FloatingTabBar(props: MaterialTopTabBarProps) {
   );
 }
 
+function FloatingActions() {
+  const theme = useTheme();
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const { activeActions } = useNavigationChrome();
+  const createProgress = useRef(new Animated.Value(0)).current;
+  const scanProgress = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(createProgress, {
+      toValue: activeActions.onCreate ? 1 : 0,
+      duration: activeActions.onCreate ? 90 : 190,
+      useNativeDriver: true,
+    }).start();
+  }, [activeActions.onCreate, createProgress]);
+
+  useEffect(() => {
+    Animated.timing(scanProgress, {
+      toValue: activeActions.onScan ? 1 : 0,
+      duration: activeActions.onScan ? 90 : 190,
+      useNativeDriver: true,
+    }).start();
+  }, [activeActions.onScan, scanProgress]);
+
+  if (width >= 600) return null;
+
+  const bottom = Math.max(insets.bottom, 8) + 86;
+  const actionStyle = (progressValue: Animated.Value) => ({
+    opacity: progressValue,
+    transform: [
+      {
+        translateY: progressValue.interpolate({
+          inputRange: [0, 1],
+          outputRange: [10, 0],
+        }),
+      },
+      {
+        scale: progressValue.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0.9, 1],
+        }),
+      },
+    ],
+  });
+
+  return (
+    <>
+      <Animated.View
+        pointerEvents={activeActions.onScan ? 'auto' : 'none'}
+        style={[
+          styles.globalAction,
+          styles.scanAction,
+          { bottom, backgroundColor: theme.buttonPrimary },
+          actionStyle(scanProgress),
+        ]}
+      >
+        <TouchableOpacity
+          accessibilityLabel="Escanear código QR"
+          style={styles.globalActionButton}
+          onPress={activeActions.onScan}
+        >
+          <Ionicons name="scan" size={26} color="white" />
+        </TouchableOpacity>
+      </Animated.View>
+
+      <Animated.View
+        pointerEvents={activeActions.onCreate ? 'auto' : 'none'}
+        style={[
+          styles.globalAction,
+          styles.createAction,
+          { bottom, backgroundColor: '#FFC107' },
+          actionStyle(createProgress),
+        ]}
+      >
+        <TouchableOpacity
+          accessibilityLabel="Crear"
+          style={styles.globalActionButton}
+          onPress={activeActions.onCreate}
+        >
+          <Ionicons name="add" size={26} color="white" />
+        </TouchableOpacity>
+      </Animated.View>
+    </>
+  );
+}
+
 function AppTabsContent() {
   const { user, role } = useAuth();
   const theme = useTheme();
@@ -275,9 +366,6 @@ function AppTabsContent() {
             const state = event.data.state;
             const activeRoute = state.routes[state.index];
             setActiveTab(activeRoute.name);
-          },
-          tabPress: () => {
-            setActiveTab(activeHeader ? activeHeader as never : 'Tickets');
           },
         }}
         screenOptions={({ route }) => ({
@@ -312,6 +400,7 @@ function AppTabsContent() {
           </>
         )}
       </Tab.Navigator>
+      <FloatingActions />
     </View>
   );
 }
@@ -407,5 +496,29 @@ const styles = StyleSheet.create({
     lineHeight: 15,
     fontWeight: '700',
     textAlign: 'center',
+  },
+  globalAction: {
+    position: 'absolute',
+    zIndex: 110,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.28,
+    shadowRadius: 7,
+  },
+  globalActionButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 28,
+  },
+  scanAction: {
+    left: 16,
+  },
+  createAction: {
+    right: 16,
   },
 });

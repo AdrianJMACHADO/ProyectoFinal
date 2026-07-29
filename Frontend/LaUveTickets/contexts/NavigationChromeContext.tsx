@@ -13,11 +13,21 @@ export type HeaderConfiguration = {
   onYearChange?: (year: string | null) => void;
 };
 
+export type FloatingActionsConfiguration = {
+  onCreate?: () => void;
+  onScan?: () => void;
+};
+
 type NavigationChromeValue = {
   activeTab: string;
   activeHeader: HeaderConfiguration;
   setActiveTab: (tab: string) => void;
   registerHeader: (tab: string, config: HeaderConfiguration) => void;
+  activeActions: FloatingActionsConfiguration;
+  registerActions: (
+    tab: string,
+    config: FloatingActionsConfiguration,
+  ) => void;
   isTabBarCompact: boolean;
   reportScroll: (tab: string, offsetY: number) => void;
 };
@@ -33,10 +43,19 @@ export function NavigationChromeProvider({
   const [isTabBarCompact, setIsTabBarCompact] = useState(false);
   const compactRef = useRef(false);
   const [headers, setHeaders] = useState<Record<string, HeaderConfiguration>>({});
+  const [actions, setActions] = useState<
+    Record<string, FloatingActionsConfiguration>
+  >({});
   const scrollAnchor = useRef<Record<string, number>>({});
   const registerHeader = useCallback(
     (tab: string, config: HeaderConfiguration) => {
       setHeaders(current => ({ ...current, [tab]: config }));
+    },
+    [],
+  );
+  const registerActions = useCallback(
+    (tab: string, config: FloatingActionsConfiguration) => {
+      setActions(current => ({ ...current, [tab]: config }));
     },
     [],
   );
@@ -80,17 +99,21 @@ export function NavigationChromeProvider({
     () => ({
       activeTab,
       activeHeader: headers[activeTab] ?? {},
+      activeActions: actions[activeTab] ?? {},
       setActiveTab: activateTab,
       registerHeader,
+      registerActions,
       isTabBarCompact,
       reportScroll,
     }),
     [
       activeTab,
+      actions,
       activateTab,
       headers,
       isTabBarCompact,
       registerHeader,
+      registerActions,
       reportScroll,
     ],
   );
