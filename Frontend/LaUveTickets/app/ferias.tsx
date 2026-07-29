@@ -7,6 +7,7 @@ import { format } from 'date-fns';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, SafeAreaView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NavigationHeaderRegistration } from '../components/NavigationHeaderRegistration';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigationChrome } from '../contexts/NavigationChromeContext';
@@ -27,6 +28,8 @@ const FeriasScreen: React.FC = () => {
   const router = useRouter();
   const { logout } = useAuth();
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
+  const floatingActionsBottom = Math.max(insets.bottom, 8) + 86;
   const screenWidth = Dimensions.get('window').width;
   const isMobile = screenWidth < 600;
 
@@ -289,7 +292,7 @@ const FeriasScreen: React.FC = () => {
     fab: {
       position: 'absolute',
       right: 16,
-      bottom: 94,
+      bottom: floatingActionsBottom,
       width: 56,
       height: 56,
       borderRadius: 28,

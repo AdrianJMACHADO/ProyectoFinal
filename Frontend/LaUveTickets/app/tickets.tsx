@@ -8,6 +8,7 @@ import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, FlatList, Image, Platform, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NavigationHeaderRegistration } from '../components/NavigationHeaderRegistration';
 import { QRScannerModal } from '../components/QRScannerModal';
 import { createTicketPdf, QRGenerator, ticketQrValue } from '../components/QRGenerator';
@@ -103,6 +104,8 @@ export default function TicketsScreen() {
   const [editModalError, setEditModalError] = useState<string | null>(null);
 
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
+  const floatingActionsBottom = Math.max(insets.bottom, 8) + 86;
 
   const styles = StyleSheet.create({
     container: {
@@ -223,7 +226,7 @@ export default function TicketsScreen() {
     fab: {
       position: 'absolute',
       right: 16,
-      bottom: 94,
+      bottom: floatingActionsBottom,
       width: 56,
       height: 56,
       borderRadius: 28,
@@ -238,7 +241,7 @@ export default function TicketsScreen() {
     scannerFab: {
       position: 'absolute',
       left: 16,
-      bottom: 94,
+      bottom: floatingActionsBottom,
       width: 56,
       height: 56,
       borderRadius: 28,
