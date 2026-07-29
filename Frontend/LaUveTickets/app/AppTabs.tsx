@@ -353,6 +353,18 @@ function AppTabsContent() {
 
   if (!user) return null;
 
+  if (role === 'EMPLEADO') {
+    return (
+      <View style={[styles.shell, { backgroundColor: theme.background }]}>
+        <NavigationHeader {...activeHeader} />
+        <View style={styles.employeeScreen}>
+          <TicketsScreen />
+        </View>
+        <FloatingActions />
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.shell, { backgroundColor: theme.background }]}>
       <NavigationHeader {...activeHeader} />
@@ -368,8 +380,8 @@ function AppTabsContent() {
             setActiveTab(activeRoute.name);
           },
         }}
-        screenOptions={({ route }) => ({
-          swipeEnabled: Platform.OS !== 'web' && role !== 'EMPLEADO',
+        screenOptions={() => ({
+          swipeEnabled: Platform.OS !== 'web',
           lazy: true,
           animationEnabled: true,
         })}
@@ -377,28 +389,24 @@ function AppTabsContent() {
         <Tab.Screen
           name="Tickets"
           component={TicketsScreen}
-          options={{ title: role === 'EMPLEADO' ? 'Escanear' : 'Tickets' }}
+          options={{ title: 'Tickets' }}
         />
-        {role !== 'EMPLEADO' && (
-          <>
-            <Tab.Screen name="Ferias" component={FeriasScreen} />
-            <Tab.Screen
-              name="Uso"
-              component={GraficosTicketsScreen}
-              options={{ title: 'Uso' }}
-            />
-            <Tab.Screen
-              name="FeriasStats"
-              component={GraficosFeriasScreen}
-              options={{ title: 'Gráficas' }}
-            />
-            <Tab.Screen
-              name="Usuarios"
-              component={UsersScreen}
-              options={{ title: 'Usuarios' }}
-            />
-          </>
-        )}
+        <Tab.Screen name="Ferias" component={FeriasScreen} />
+        <Tab.Screen
+          name="Uso"
+          component={GraficosTicketsScreen}
+          options={{ title: 'Uso' }}
+        />
+        <Tab.Screen
+          name="FeriasStats"
+          component={GraficosFeriasScreen}
+          options={{ title: 'Gráficas' }}
+        />
+        <Tab.Screen
+          name="Usuarios"
+          component={UsersScreen}
+          options={{ title: 'Usuarios' }}
+        />
       </Tab.Navigator>
       <FloatingActions />
     </View>
@@ -415,6 +423,9 @@ export default function AppTabs() {
 
 const styles = StyleSheet.create({
   shell: {
+    flex: 1,
+  },
+  employeeScreen: {
     flex: 1,
   },
   tabDock: {
