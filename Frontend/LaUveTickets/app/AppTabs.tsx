@@ -10,7 +10,7 @@ import {
   MaterialTopTabBarProps,
 } from '@react-navigation/material-top-tabs';
 import { BlurView } from 'expo-blur';
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Dimensions,
@@ -54,6 +54,7 @@ function FloatingTabBar(props: MaterialTopTabBarProps) {
   const insets = useSafeAreaInsets();
   const { isTabBarCompact, setActiveTab } = useNavigationChrome();
   const progress = useRef(new Animated.Value(0)).current;
+  const [tabsWidth, setTabsWidth] = useState(0);
 
   useEffect(() => {
     Animated.spring(progress, {
@@ -119,7 +120,30 @@ function FloatingTabBar(props: MaterialTopTabBarProps) {
             Platform.OS === 'web' && styles.webGlass,
           ]}
         />
-        <View style={styles.tabItems}>
+        <View
+          style={styles.tabItems}
+          onLayout={event => setTabsWidth(event.nativeEvent.layout.width)}
+        >
+          {tabsWidth > 0 && (
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                styles.activePill,
+                {
+                  width: (tabsWidth - 10) / props.state.routes.length,
+                  backgroundColor: `${theme.buttonPrimary}1F`,
+                  transform: [
+                    {
+                      translateX: Animated.multiply(
+                        props.position,
+                        (tabsWidth - 10) / props.state.routes.length,
+                      ),
+                    },
+                  ],
+                },
+              ]}
+            />
+          )}
           {props.state.routes.map((route, index) => {
             const focused = props.state.index === index;
             const options = props.descriptors[route.key].options;
@@ -150,9 +174,6 @@ function FloatingTabBar(props: MaterialTopTabBarProps) {
                 onPress={onPress}
                 style={({ pressed }) => [
                   styles.tabItem,
-                  focused && {
-                    backgroundColor: `${theme.buttonPrimary}1F`,
-                  },
                   pressed && styles.tabItemPressed,
                 ]}
               >
@@ -291,6 +312,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 1,
+    zIndex: 1,
+  },
+  activePill: {
+    position: 'absolute',
+    left: 5,
+    top: 5,
+    bottom: 5,
+    borderRadius: 24,
   },
   tabItemPressed: {
     opacity: 0.72,

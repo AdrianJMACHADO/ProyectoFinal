@@ -68,6 +68,22 @@ export default function TicketsScreen() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [sharingSelection, setSharingSelection] = useState(false);
   const batchQrRefs = useRef<Record<number, any>>({});
+  const ticketsListRef = useRef<FlatList<Ticket>>(null);
+
+  const resetTicketsViewport = () => {
+    reportScroll('Tickets', 0);
+    requestAnimationFrame(() => {
+      ticketsListRef.current?.scrollToOffset({
+        offset: 0,
+        animated: false,
+      });
+    });
+  };
+
+  const closeScanner = () => {
+    setScannerVisible(false);
+    resetTicketsViewport();
+  };
 
   // Hook para obtener las áreas seguras
 
@@ -800,6 +816,7 @@ export default function TicketsScreen() {
         ) : (
           <>
             <FlatList
+              ref={ticketsListRef}
               onScroll={event =>
                 reportScroll('Tickets', event.nativeEvent.contentOffset.y)
               }
@@ -831,7 +848,10 @@ export default function TicketsScreen() {
         <TouchableOpacity
           accessibilityLabel="Escanear código QR"
           style={[styles.scannerFab, { backgroundColor: theme.buttonPrimary }]}
-          onPress={() => setScannerVisible(true)}
+          onPress={() => {
+            resetTicketsViewport();
+            setScannerVisible(true);
+          }}
         >
           <Ionicons name="scan" size={26} color="white" />
         </TouchableOpacity>
@@ -865,12 +885,15 @@ export default function TicketsScreen() {
 
       <QRScannerModal
         visible={scannerVisible}
-        onClose={() => setScannerVisible(false)}
+        onClose={closeScanner}
         onTicketScanned={async (ticketId, qrToken) => {
           try {
             const ticket = await getTicketByQrCredential(ticketId, qrToken);
             if (!ticket) return false;
-            router.push(`/tickets/${ticketId}`);
+            closeScanner();
+            requestAnimationFrame(() => {
+              router.push(`/tickets/${ticketId}`);
+            });
             return true;
           } catch {
             return false;
