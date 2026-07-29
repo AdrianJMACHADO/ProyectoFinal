@@ -1,0 +1,21 @@
+# Dependencias y artefactos generados del repositorio.
+Backend/node_modules/
+Frontend/LaUveTickets/node_modules/
+Frontend/LaUveTickets/.expo/
+Frontend/LaUveTickets/dist/
+Frontend/LaUveTickets/web-build/
+
+# Cachés y compilaciones Android locales (contienen rutas de Windows).
+Frontend/LaUveTickets/android/.gradle/
+Frontend/LaUveTickets/android/.kotlin/
+Frontend/LaUveTickets/android/.cxx/
+Frontend/LaUveTickets/android/build/
+Frontend/LaUveTickets/android/app/.cxx/
+Frontend/LaUveTickets/android/app/build/
+
+# Otros artefactos locales.
+*.log
+*.hprof
+*.tsbuildinfo
+.DS_Store
+Thumbs.db
