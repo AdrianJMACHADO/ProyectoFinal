@@ -152,8 +152,11 @@ export function QRScannerModal({
   return (
     <Modal
       visible={visible}
-      animationType="slide"
-      presentationStyle="fullScreen"
+      animationType="fade"
+      presentationStyle="overFullScreen"
+      transparent
+      statusBarTranslucent
+      navigationBarTranslucent
       onRequestClose={onClose}
       onDismiss={onDismiss}
     >
