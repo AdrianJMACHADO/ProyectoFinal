@@ -48,7 +48,13 @@
       ],
       "expo-web-browser",
       "@react-native-google-signin/google-signin",
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "LaUveTickets usa tu ubicación para situar una feria en el mapa."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

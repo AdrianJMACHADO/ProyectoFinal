@@ -20,8 +20,28 @@ export type FeriaRecord = {
   idFeria: number;
   nombre: string;
   fecha: string;
+  fechaInicio?: string;
+  fechaFin?: string;
+  latitud?: number;
+  longitud?: number;
+  ubicacionNombre?: string;
+  ubicacionOrigen?: 'DISPOSITIVO' | 'MAPA';
   estado?: 'ACTIVO' | 'INACTIVO';
   visible_en_listado?: boolean;
+};
+
+const normalizeFeria = (data: Record<string, unknown>): FeriaRecord => {
+  const fecha = String(data.fechaInicio ?? data.fecha ?? new Date().toISOString());
+  return {
+    ...(data as FeriaRecord),
+    fecha,
+    fechaInicio: String(data.fechaInicio ?? fecha),
+    fechaFin: String(data.fechaFin ?? data.fechaInicio ?? fecha),
+    latitud:
+      typeof data.latitud === 'number' ? data.latitud : undefined,
+    longitud:
+      typeof data.longitud === 'number' ? data.longitud : undefined,
+  };
 };
 
 export type TicketRecord = {
@@ -70,7 +90,7 @@ const allocateNumericId = async (counterName: string): Promise<number> => {
 export const listFerias = async (): Promise<FeriaRecord[]> => {
   const db = getFirebaseDb();
   const snapshot = await getDocs(query(collection(db, FERIAS), orderBy('fecha', 'desc')));
-  return snapshot.docs.map((item) => item.data() as FeriaRecord);
+  return snapshot.docs.map(item => normalizeFeria(item.data()));
 };
 
 export const subscribeFerias = (
@@ -80,7 +100,7 @@ export const subscribeFerias = (
   const db = getFirebaseDb();
   return onSnapshot(
     query(collection(db, FERIAS), orderBy('fecha', 'desc')),
-    snapshot => onData(snapshot.docs.map(item => item.data() as FeriaRecord)),
+    snapshot => onData(snapshot.docs.map(item => normalizeFeria(item.data()))),
     error => onError?.(error),
   );
 };

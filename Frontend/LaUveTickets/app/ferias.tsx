@@ -3,10 +3,14 @@ import { ThemedView } from '@/components/ThemedView';
 import { useTheme } from '@/hooks/useThemeColor';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { format } from 'date-fns';
+import { eachDayOfInterval, format } from 'date-fns';
 import { useRouter } from 'expo-router';
+import { Calendar, DateData } from 'react-native-calendars';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import FeriaLocationPicker, {
+  FeriaLocationValue,
+} from '../components/FeriaLocationPicker';
 import { NavigationActionsRegistration } from '../components/NavigationActionsRegistration';
 import { NavigationHeaderRegistration } from '../components/NavigationHeaderRegistration';
 import { useAuth } from '../contexts/AuthContext';
@@ -22,13 +26,19 @@ import {
 const inputFilterRegex = /[;"'=\\<>]/g;
 
 // Tipos
-interface Feria {
-  idFeria: number;
+import type { FeriaRecord } from '../services/firestoreData';
+type Feria = FeriaRecord;
+
+type FeriaForm = {
   nombre: string;
   fecha: string;
-  estado?: 'ACTIVO' | 'INACTIVO';
-  visible_en_listado?: boolean;
-}
+  fechaInicio: string;
+  fechaFin: string;
+  latitud?: number;
+  longitud?: number;
+  ubicacionNombre?: string;
+  ubicacionOrigen?: 'DISPOSITIVO' | 'MAPA';
+};
 
 const FeriasScreen: React.FC = () => {
   const { reportScroll } = useNavigationChrome();
@@ -43,12 +53,25 @@ const FeriasScreen: React.FC = () => {
   const [modalVisible, setModalVisible] = useState<boolean>(false);
   const [editMode, setEditMode] = useState<boolean>(false);
   const [selectedFeria, setSelectedFeria] = useState<Feria | null>(null);
-  const [form, setForm] = useState<{ nombre: string; fecha: string }>({ nombre: '', fecha: '' });
-  const [formErrors, setFormErrors] = useState<{ nombre?: string; fecha?: string }>({});
+  const [form, setForm] = useState<FeriaForm>({
+    nombre: '',
+    fecha: '',
+    fechaInicio: '',
+    fechaFin: '',
+  });
+  const [formErrors, setFormErrors] = useState<{
+    nombre?: string;
+    fechaInicio?: string;
+    fechaFin?: string;
+    ubicacion?: string;
+  }>({});
   const [selectedYear, setSelectedYear] = useState<string | null>(null);
   const [availableYears, setAvailableYears] = useState<string[]>([]);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [pendingDate, setPendingDate] = useState<Date>(new Date());
+  const [dateTarget, setDateTarget] = useState<'fechaInicio' | 'fechaFin'>(
+    'fechaInicio',
+  );
   const [error, setError] = useState<string | null>(null);
   const [modalError, setModalError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -127,9 +150,20 @@ const FeriasScreen: React.FC = () => {
 
   // Validación
   const validate = () => {
-    const errors: { nombre?: string; fecha?: string } = {};
+    const errors: typeof formErrors = {};
     if (!form.nombre.trim()) errors.nombre = 'El nombre es obligatorio';
-    if (!form.fecha.trim()) errors.fecha = 'La fecha es obligatoria';
+    if (!form.fechaInicio) errors.fechaInicio = 'La fecha de inicio es obligatoria';
+    if (!form.fechaFin) errors.fechaFin = 'La fecha de fin es obligatoria';
+    if (
+      form.fechaInicio &&
+      form.fechaFin &&
+      new Date(form.fechaFin) < new Date(form.fechaInicio)
+    ) {
+      errors.fechaFin = 'La fecha de fin no puede ser anterior al inicio';
+    }
+    if (!Number.isFinite(form.latitud) || !Number.isFinite(form.longitud)) {
+      errors.ubicacion = 'Selecciona la ubicación de la feria';
+    }
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -138,7 +172,12 @@ const FeriasScreen: React.FC = () => {
   const openCreateModal = () => {
     setEditMode(false);
     const today = new Date();
-    setForm({ nombre: '', fecha: today.toISOString() });
+    setForm({
+      nombre: '',
+      fecha: today.toISOString(),
+      fechaInicio: today.toISOString(),
+      fechaFin: today.toISOString(),
+    });
     setPendingDate(today);
     setFormErrors({});
     setModalError(null);
@@ -149,7 +188,17 @@ const FeriasScreen: React.FC = () => {
   const openEditModal = (feria: Feria) => {
     setEditMode(true);
     setSelectedFeria(feria);
-    setForm({ nombre: feria.nombre, fecha: feria.fecha });
+    const fechaInicio = feria.fechaInicio ?? feria.fecha;
+    setForm({
+      nombre: feria.nombre,
+      fecha: fechaInicio,
+      fechaInicio,
+      fechaFin: feria.fechaFin ?? fechaInicio,
+      latitud: feria.latitud,
+      longitud: feria.longitud,
+      ubicacionNombre: feria.ubicacionNombre,
+      ubicacionOrigen: feria.ubicacionOrigen,
+    });
     setFormErrors({});
     setModalError(null);
     setModalVisible(true);
@@ -161,14 +210,27 @@ const FeriasScreen: React.FC = () => {
     setModalError(null);
   };
 
-  const openDatePicker = () => {
-    setPendingDate(form.fecha ? new Date(form.fecha) : new Date());
+  const openDatePicker = (target: 'fechaInicio' | 'fechaFin') => {
+    setDateTarget(target);
+    setPendingDate(form[target] ? new Date(form[target]) : new Date());
     setShowDatePicker(true);
   };
 
-  const commitDate = (date: Date) => {
-    setForm((current) => ({ ...current, fecha: date.toISOString() }));
-    setFormErrors((current) => ({ ...current, fecha: undefined }));
+  const commitDate = (
+    date: Date,
+    target: 'fechaInicio' | 'fechaFin' = dateTarget,
+  ) => {
+    setForm(current => {
+      const next = { ...current, [target]: date.toISOString() };
+      if (target === 'fechaInicio') {
+        next.fecha = date.toISOString();
+        if (!current.fechaFin || new Date(current.fechaFin) < date) {
+          next.fechaFin = date.toISOString();
+        }
+      }
+      return next;
+    });
+    setFormErrors(current => ({ ...current, [target]: undefined }));
   };
 
   // Guardar feria (crear o editar)
@@ -231,7 +293,16 @@ const FeriasScreen: React.FC = () => {
         <View style={styles.feriaInfo}>
           <ThemedText type="title" style={styles.feriaTitle}>{item.nombre}</ThemedText>
           <ThemedText style={styles.feriaDate}>
-            {format(new Date(item.fecha), 'dd/MM/yyyy')}
+            {format(new Date(item.fechaInicio ?? item.fecha), 'dd/MM/yyyy')}
+            {' — '}
+            {format(
+              new Date(item.fechaFin ?? item.fechaInicio ?? item.fecha),
+              'dd/MM/yyyy',
+            )}
+          </ThemedText>
+          <ThemedText style={styles.feriaLocation}>
+            <Ionicons name="location-outline" size={13} />{' '}
+            {item.ubicacionNombre || 'Sin ubicación'}
           </ThemedText>
           <ThemedText
             style={[
@@ -275,9 +346,30 @@ const FeriasScreen: React.FC = () => {
     const matchesSearch = searchQuery.toLowerCase() === '' || 
       feria.nombre.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesYear = selectedYear === 'Todas las fechas' || 
-      new Date(feria.fecha).getFullYear().toString() === selectedYear;
+      new Date(feria.fechaInicio ?? feria.fecha).getFullYear().toString() === selectedYear;
     return matchesSearch && matchesYear;
   });
+
+  const calendarMarks = filteredFerias.reduce<
+    Record<string, { selected: boolean; selectedColor: string; dots: { key: string; color: string }[] }>
+  >((marks, feria) => {
+    const start = new Date(feria.fechaInicio ?? feria.fecha);
+    const end = new Date(feria.fechaFin ?? feria.fechaInicio ?? feria.fecha);
+    eachDayOfInterval({ start, end }).forEach(day => {
+      const key = format(day, 'yyyy-MM-dd');
+      const previous = marks[key];
+      const dots = [
+        ...(previous?.dots ?? []),
+        { key: String(feria.idFeria), color: theme.buttonPrimary },
+      ];
+      marks[key] = {
+        selected: true,
+        selectedColor: dots.length > 1 ? '#FF9500' : `${theme.buttonPrimary}66`,
+        dots,
+      };
+    });
+    return marks;
+  }, {});
 
   const styles = StyleSheet.create({
     container: {
@@ -359,6 +451,26 @@ const FeriasScreen: React.FC = () => {
       fontSize: 14,
       opacity: 0.7,
     },
+    feriaLocation: {
+      marginTop: 5,
+      fontSize: 13,
+      opacity: 0.8,
+    },
+    calendarCard: {
+      marginHorizontal: 16,
+      marginBottom: 4,
+      borderRadius: 16,
+      padding: 10,
+      overflow: 'hidden',
+    },
+    calendarLegend: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      gap: 18,
+      paddingVertical: 8,
+    },
+    legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    legendDot: { width: 10, height: 10, borderRadius: 5 },
     feriaEstado: {
       marginTop: 6,
       fontSize: 12,
@@ -412,6 +524,7 @@ const FeriasScreen: React.FC = () => {
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.25,
       shadowRadius: 6,
+      maxHeight: '91%',
     },
     modalTitle: {
       marginBottom: 20,
@@ -481,6 +594,9 @@ const FeriasScreen: React.FC = () => {
       borderRadius: 10,
       alignItems: 'center',
     },
+    modalScroll: { width: '100%' },
+    modalScrollContent: { paddingBottom: 4 },
+    sectionLabel: { marginTop: 4, marginBottom: 10, fontWeight: '700' },
   });
 
   if (error) {
@@ -539,6 +655,42 @@ const FeriasScreen: React.FC = () => {
           )}
         </View>
 
+        <ThemedView type="card" style={styles.calendarCard}>
+          <Calendar
+            markedDates={calendarMarks}
+            markingType="multi-dot"
+            onDayPress={(day: DateData) => {
+              const dayDate = new Date(`${day.dateString}T12:00:00`);
+              setSelectedYear(String(dayDate.getFullYear()));
+            }}
+            theme={{
+              calendarBackground: 'transparent',
+              dayTextColor: theme.text,
+              monthTextColor: theme.text,
+              textDisabledColor: theme.placeholder,
+              arrowColor: theme.buttonPrimary,
+              todayTextColor: theme.buttonPrimary,
+            }}
+          />
+          <View style={styles.calendarLegend}>
+            <View style={styles.legendItem}>
+              <View
+                style={[
+                  styles.legendDot,
+                  { backgroundColor: theme.buttonPrimary },
+                ]}
+              />
+              <ThemedText>Feria</ThemedText>
+            </View>
+            <View style={styles.legendItem}>
+              <View
+                style={[styles.legendDot, { backgroundColor: '#FF9500' }]}
+              />
+              <ThemedText>Coinciden</ThemedText>
+            </View>
+          </View>
+        </ThemedView>
+
         {loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={theme.buttonPrimary} />
@@ -583,11 +735,17 @@ const FeriasScreen: React.FC = () => {
           >
             <Pressable style={{ width: '100%', alignItems: 'center' }} onPress={(event) => event.stopPropagation()}>
               <ThemedView type="card" style={styles.modalContent}>
-              <ThemedText type="title" style={styles.modalTitle}>
-                {editMode ? 'Editar Feria' : 'Nueva Feria'}
-              </ThemedText>
+              <ScrollView
+                style={styles.modalScroll}
+                contentContainerStyle={styles.modalScrollContent}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+              >
+                <ThemedText type="title" style={styles.modalTitle}>
+                  {editMode ? 'Editar Feria' : 'Nueva Feria'}
+                </ThemedText>
 
-              <TextInput
+                <TextInput
                 style={[
                   styles.input,
                   {
@@ -600,87 +758,144 @@ const FeriasScreen: React.FC = () => {
                 placeholderTextColor={theme.placeholder}
                 value={form.nombre}
                 onChangeText={(text) => setForm((f) => ({ ...f, nombre: text.replace(inputFilterRegex, '') }))}
-              />
-              {formErrors.nombre && (
-                <ThemedText style={[styles.errorText, { color: theme.error }]}>
-                  {formErrors.nombre}
-                </ThemedText>
-              )}
-
-              <View style={styles.inputGroup}>
-                <ThemedText style={styles.label}>Fecha</ThemedText>
-                {Platform.OS === 'web' ? (
-                  <input
-                    type="date"
-                    value={form.fecha ? format(new Date(form.fecha), 'yyyy-MM-dd') : ''}
-                    onChange={(e) => {
-                      setForm((f) => ({ ...f, fecha: e.target.value }));
-                    }}
-                    style={{
-                      ...styles.input as any,
-                      paddingVertical: 10,
-                      paddingHorizontal: 10,
-                      height: 44,
-                      color: form.fecha ? theme.text : theme.placeholder,
-                      backgroundColor: theme.inputBackground,
-                      borderColor: formErrors.fecha ? theme.error : theme.border,
-                    }}
-                  />
-                ) : Platform.OS === 'ios' ? (
-                  <View
-                    style={[
-                      styles.input,
-                      styles.dateButton,
-                      {
-                        backgroundColor: theme.inputBackground,
-                        borderColor: formErrors.fecha ? theme.error : theme.border,
-                      },
-                    ]}
-                  >
-                    <ThemedText>Fecha de la feria</ThemedText>
-                    <DateTimePicker
-                      value={form.fecha ? new Date(form.fecha) : new Date()}
-                      mode="date"
-                      display="compact"
-                      locale="es-ES"
-                      onChange={(_, selectedDate) => {
-                        if (selectedDate) commitDate(selectedDate);
-                      }}
-                    />
-                  </View>
-                ) : (
-                  <TouchableOpacity
-                    style={[
-                      styles.input,
-                      styles.dateButton,
-                      {
-                        backgroundColor: theme.inputBackground,
-                        borderColor: formErrors.fecha ? theme.error : theme.border,
-                      }
-                    ]}
-                    onPress={openDatePicker}
-                    activeOpacity={0.7}
-                  >
-                    <ThemedText style={form.fecha ? {} : { color: theme.placeholder }}>
-                      {form.fecha ? format(new Date(form.fecha), 'dd/MM/yyyy') : 'Seleccionar fecha'}
-                    </ThemedText>
-                    <Ionicons name="calendar-outline" size={22} color={form.fecha ? theme.primary : theme.placeholder} />
-                  </TouchableOpacity>
+                />
+                {formErrors.nombre && (
+                  <ThemedText style={[styles.errorText, { color: theme.error }]}>
+                    {formErrors.nombre}
+                  </ThemedText>
                 )}
-              </View>
-              {formErrors.fecha && (
-                <ThemedText style={[styles.errorText, { color: theme.error }]}>
-                  {formErrors.fecha}
-                </ThemedText>
-              )}
 
-              {modalError && (
-                <ThemedText style={[styles.errorText, { color: theme.error }]}>
-                  {modalError}
-                </ThemedText>
-              )}
+                {(['fechaInicio', 'fechaFin'] as const).map(target => {
+                  const label =
+                    target === 'fechaInicio' ? 'Fecha de inicio' : 'Fecha de fin';
+                  const fieldError = formErrors[target];
+                  return (
+                    <View style={styles.inputGroup} key={target}>
+                      <ThemedText style={styles.label}>{label}</ThemedText>
+                      {Platform.OS === 'web' ? (
+                        <input
+                          type="date"
+                          value={
+                            form[target]
+                              ? format(new Date(form[target]), 'yyyy-MM-dd')
+                              : ''
+                          }
+                          onChange={event =>
+                            commitDate(
+                              new Date(`${event.target.value}T12:00:00`),
+                              target,
+                            )
+                          }
+                          style={{
+                            padding: 12,
+                            height: 48,
+                            borderRadius: 8,
+                            color: theme.text,
+                            backgroundColor: theme.inputBackground,
+                            border: `1px solid ${
+                              fieldError ? theme.error : theme.border
+                            }`,
+                          }}
+                        />
+                      ) : Platform.OS === 'ios' ? (
+                        <View
+                          style={[
+                            styles.input,
+                            styles.dateButton,
+                            {
+                              backgroundColor: theme.inputBackground,
+                              borderColor: fieldError
+                                ? theme.error
+                                : theme.border,
+                            },
+                          ]}
+                        >
+                          <ThemedText>{label}</ThemedText>
+                          <DateTimePicker
+                            value={
+                              form[target]
+                                ? new Date(form[target])
+                                : new Date()
+                            }
+                            mode="date"
+                            display="compact"
+                            locale="es-ES"
+                            onChange={(_, selectedDate) => {
+                              if (selectedDate) commitDate(selectedDate, target);
+                            }}
+                          />
+                        </View>
+                      ) : (
+                        <TouchableOpacity
+                          style={[
+                            styles.input,
+                            styles.dateButton,
+                            {
+                              backgroundColor: theme.inputBackground,
+                              borderColor: fieldError
+                                ? theme.error
+                                : theme.border,
+                            },
+                          ]}
+                          onPress={() => openDatePicker(target)}
+                        >
+                          <ThemedText>
+                            {form[target]
+                              ? format(new Date(form[target]), 'dd/MM/yyyy')
+                              : `Seleccionar ${label.toLowerCase()}`}
+                          </ThemedText>
+                          <Ionicons
+                            name="calendar-outline"
+                            size={22}
+                            color={theme.buttonPrimary}
+                          />
+                        </TouchableOpacity>
+                      )}
+                      {fieldError && (
+                        <ThemedText
+                          style={[styles.errorText, { color: theme.error }]}
+                        >
+                          {fieldError}
+                        </ThemedText>
+                      )}
+                    </View>
+                  );
+                })}
 
-              <View style={styles.modalButtons}>
+                <ThemedText style={styles.sectionLabel}>Ubicación</ThemedText>
+                <FeriaLocationPicker
+                  value={
+                    Number.isFinite(form.latitud) &&
+                    Number.isFinite(form.longitud)
+                      ? ({
+                          latitud: form.latitud!,
+                          longitud: form.longitud!,
+                          ubicacionNombre: form.ubicacionNombre,
+                          ubicacionOrigen: form.ubicacionOrigen ?? 'MAPA',
+                        } satisfies FeriaLocationValue)
+                      : undefined
+                  }
+                  onChange={location => {
+                    setForm(current => ({ ...current, ...location }));
+                    setFormErrors(current => ({
+                      ...current,
+                      ubicacion: undefined,
+                    }));
+                  }}
+                />
+                {formErrors.ubicacion && (
+                  <ThemedText style={[styles.errorText, { color: theme.error }]}>
+                    {formErrors.ubicacion}
+                  </ThemedText>
+                )}
+
+                {modalError && (
+                  <ThemedText style={[styles.errorText, { color: theme.error }]}>
+                    {modalError}
+                  </ThemedText>
+                )}
+
+                <View style={styles.modalButtons}>
                 <TouchableOpacity
                   style={[styles.modalButton, { backgroundColor: '#4CAF50' }]}
                   onPress={async () => {
@@ -702,7 +917,8 @@ const FeriasScreen: React.FC = () => {
                 >
                   <ThemedText type="button" style={styles.buttonText}>Cancelar</ThemedText>
                 </TouchableOpacity>
-              </View>
+                </View>
+              </ScrollView>
               </ThemedView>
             </Pressable>
           </KeyboardAvoidingView>

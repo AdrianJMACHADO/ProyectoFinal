@@ -1,252 +1,155 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { useTheme } from '@/hooks/useThemeColor';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { PieChart } from 'react-native-chart-kit';
+import FeriaRouteMap from '../components/FeriaRouteMap';
 import { NavigationHeaderRegistration } from '../components/NavigationHeaderRegistration';
 import { useNavigationChrome } from '../contexts/NavigationChromeContext';
-import { listFerias, subscribeFerias } from '../services/firestoreData';
-import { Feria } from './tickets';
+import {
+  FeriaRecord,
+  listFerias,
+  subscribeFerias,
+} from '../services/firestoreData';
+import { buildFeriaRoute, getFeriaStart } from '../services/feriaTravel';
+
+const FUEL_SETTINGS_KEY = 'lauve.fuelCalculator';
+const ROAD_ESTIMATE_FACTOR = 1.18;
 
 export default function GraficosFeriasScreen() {
-  const { reportScroll } = useNavigationChrome();
-  const [ferias, setFerias] = useState<Feria[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedYear, setSelectedYear] = useState<string | null>(null);
-  const [availableYears, setAvailableYears] = useState<string[]>([]);
-  const [error, setError] = useState<string | null>(null);
-
-  // Hook para obtener las áreas seguras
   const theme = useTheme();
-  const screenWidth = Dimensions.get('window').width;
-  const isLargeScreen = screenWidth > 768;
+  const { width } = useWindowDimensions();
+  const { reportScroll } = useNavigationChrome();
+  const [ferias, setFerias] = useState<FeriaRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedYear, setSelectedYear] = useState<string | null>(null);
+  const [litresPer100, setLitresPer100] = useState('28');
+  const [pricePerLitre, setPricePerLitre] = useState('1.55');
 
   useEffect(() => {
-    setLoading(true);
-    setError(null);
+    void AsyncStorage.getItem(FUEL_SETTINGS_KEY).then(value => {
+      if (!value) return;
+      try {
+        const saved = JSON.parse(value);
+        setLitresPer100(String(saved.litresPer100 ?? 28));
+        setPricePerLitre(String(saved.pricePerLitre ?? 1.55));
+      } catch {
+        // Conserva los valores iniciales si el almacenamiento está dañado.
+      }
+    });
     const unsubscribe = subscribeFerias(
       data => {
         setFerias(data);
-        const years = Array.from(
-          new Set(
-            data.map(feria =>
-              new Date(feria.fecha).getFullYear().toString(),
-            ),
-          ),
-        ).sort((a, b) => Number(b) - Number(a));
-        const yearOptions = ['Todas las fechas', ...years];
-        setAvailableYears(yearOptions);
-        setSelectedYear(current =>
-          current && yearOptions.includes(current)
-            ? current
-            : years.includes(String(new Date().getFullYear()))
-              ? String(new Date().getFullYear())
-              : 'Todas las fechas',
-        );
-        setError(null);
         setLoading(false);
+        setError(null);
       },
       subscriptionError => {
-        setError(
-          subscriptionError.message || 'No se pudieron sincronizar las ferias',
-        );
+        setError(subscriptionError.message);
         setLoading(false);
       },
     );
-
     return unsubscribe;
   }, []);
 
-  const loadData = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await listFerias();
-      setFerias(data);
-      const years: string[] = Array.from(new Set(data.map((feria: Feria) => new Date(feria.fecha).getFullYear().toString())));
-      years.sort((a, b) => parseInt(b) - parseInt(a));
-      setAvailableYears(['Todas las fechas', ...years]);
-      const currentYear = String(new Date().getFullYear());
-      setSelectedYear(current =>
-        current && ['Todas las fechas', ...years].includes(current)
-          ? current
-          : years.includes(currentYear)
-            ? currentYear
-            : 'Todas las fechas',
-      );
-      setError(null);
-    } catch (error) {
-      // console.error('Error al cargar los datos:', error);
-      const errorMessage = (error as Error).message || 'No se pudieron cargar los datos';
-      setError(errorMessage);
-      Alert.alert('Error de Carga', errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const years = useMemo(
+    () =>
+      Array.from(
+        new Set(ferias.map(feria => String(getFeriaStart(feria).getFullYear()))),
+      ).sort((a, b) => Number(b) - Number(a)),
+    [ferias],
+  );
+  const availableYears = ['Todas las fechas', ...years];
 
-  const handleYearChange = (year: string | null) => {
-    setSelectedYear(year);
-  };
+  useEffect(() => {
+    if (selectedYear && availableYears.includes(selectedYear)) return;
+    const current = String(new Date().getFullYear());
+    setSelectedYear(years.includes(current) ? current : 'Todas las fechas');
+  }, [availableYears.join('|'), selectedYear]);
 
-  // Define styles inside the component to access theme
-  const styles = StyleSheet.create({
-    container: {
-      flex: 1,
+  const filteredFerias = useMemo(
+    () =>
+      selectedYear === 'Todas las fechas'
+        ? ferias
+        : ferias.filter(
+            feria => String(getFeriaStart(feria).getFullYear()) === selectedYear,
+          ),
+    [ferias, selectedYear],
+  );
+  const route = useMemo(() => buildFeriaRoute(filteredFerias), [filteredFerias]);
+  const estimatedRoadKm = route.totalDirectKm * ROAD_ESTIMATE_FACTOR;
+  const consumption = Number(litresPer100.replace(',', '.')) || 0;
+  const fuelPrice = Number(pricePerLitre.replace(',', '.')) || 0;
+  const estimatedLitres = (estimatedRoadKm * consumption) / 100;
+  const estimatedCost = estimatedLitres * fuelPrice;
+
+  const feriasPorMes = filteredFerias.reduce<Record<string, number>>(
+    (accumulator, feria) => {
+      const month = format(getFeriaStart(feria), 'MMMM', { locale: es });
+      accumulator[month] = (accumulator[month] ?? 0) + 1;
+      return accumulator;
     },
-    scrollView: {
-      flex: 1,
-    },
-    center: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    content: {
-      padding: 16,
-      paddingBottom: 116,
-    },
-    contentLarge: {
-      padding: 24,
-    },
-    title: {
-      fontSize: 22,
-      fontWeight: 'bold',
-      marginBottom: 16,
-      textAlign: 'center',
-    },
-    chartContainer: {
-      borderRadius: 10,
-      padding: 16,
-      marginBottom: 16,
-      // Add theme-aware shadow styles
-      elevation: 8,
-      shadowColor: theme.shadow,
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.25,
-      shadowRadius: 6,
-    },
-    chartContainerLarge: {
-      padding: 24,
-      marginBottom: 16,
-      // Add theme-aware shadow styles
-      elevation: 8,
-      shadowColor: theme.shadow,
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.25,
-      shadowRadius: 6,
-    },
-    chartTitle: {
-      fontSize: 16,
-      fontWeight: 'bold',
-      marginBottom: 12,
-      textAlign: 'center',
-    },
-    summaryContainer: {
-      borderRadius: 10,
-      padding: 16,
-      marginBottom: 16,
-      // Add theme-aware shadow styles
-      elevation: 8,
-      shadowColor: theme.shadow,
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.25,
-      shadowRadius: 6,
-    },
-    summaryContainerLarge: {
-      padding: 24,
-    },
-    summaryItem: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: 10,
-      padding: 10,
-      borderRadius: 8,
-    },
-    mesName: {
-      fontSize: 16,
-      fontWeight: 'bold',
-    },
-    cantidadText: {
-      fontSize: 16,
-      fontWeight: '500',
-    },
-    errorContainer: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: 20,
-    },
-    errorTextCentered: {
-      fontSize: 16,
-      textAlign: 'center',
-      marginTop: 10,
-      marginBottom: 20,
-    },
-    retryButton: {
-      paddingVertical: 10,
-      paddingHorizontal: 20,
-      borderRadius: 8,
-    },
-    retryButtonText: {
-      fontSize: 16,
-      fontWeight: 'bold',
-    },
-  });
+    {},
+  );
+
+  const persistCalculator = (nextConsumption: string, nextPrice: string) => {
+    void AsyncStorage.setItem(
+      FUEL_SETTINGS_KEY,
+      JSON.stringify({
+        litresPer100: nextConsumption,
+        pricePerLitre: nextPrice,
+      }),
+    );
+  };
 
   if (loading) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.background }]}>
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={theme.buttonPrimary} />
-        </View>
+      <View style={[styles.center, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={theme.buttonPrimary} />
       </View>
     );
   }
 
   if (error) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.background }]}>
-        <View style={styles.errorContainer}>
-          <Ionicons name="cloud-offline" size={50} color={theme.error} />
-          <ThemedText style={styles.errorTextCentered}>Error al cargar los datos: {error}</ThemedText>
-          <TouchableOpacity 
-            style={[styles.retryButton, { backgroundColor: theme.buttonPrimary }]} 
-            onPress={loadData}
-          >
-            <ThemedText style={styles.retryButtonText}>Reintentar</ThemedText>
-          </TouchableOpacity>
-        </View>
+      <View style={[styles.center, { backgroundColor: theme.background }]}>
+        <Ionicons name="cloud-offline" size={48} color={theme.error} />
+        <ThemedText style={styles.errorText}>{error}</ThemedText>
+        <TouchableOpacity
+          style={[styles.retry, { backgroundColor: theme.buttonPrimary }]}
+          onPress={async () => {
+            setLoading(true);
+            try {
+              setFerias(await listFerias());
+              setError(null);
+            } catch (retryError) {
+              setError((retryError as Error).message);
+            } finally {
+              setLoading(false);
+            }
+          }}
+        >
+          <ThemedText style={styles.whiteText}>Reintentar</ThemedText>
+        </TouchableOpacity>
       </View>
     );
   }
 
-  const filteredFerias = selectedYear === 'Todas las fechas'
-    ? ferias
-    : selectedYear
-      ? ferias.filter(feria => new Date(feria.fecha).getFullYear().toString() === selectedYear)
-      : ferias;
-
-  const feriasPorMes = filteredFerias.reduce((acc, feria) => {
-    const mes = format(new Date(feria.fecha), 'MMMM', { locale: es });
-    acc[mes] = (acc[mes] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
-
-  const chartConfig = {
-    backgroundGradientFrom: theme.background,
-    backgroundGradientTo: theme.background,
-    color: (opacity = 1) => `rgba(0, 122, 255, ${opacity})`,
-    strokeWidth: 2,
-    barPercentage: 0.5,
-    useShadowColorFromDataset: false,
-    labelColor: (opacity = 1) => theme.text,
-  };
+  const contentWidth = Math.min(width - 32, 980);
+  const pieWidth = Math.min(contentWidth - 24, 600);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -254,49 +157,219 @@ export default function GraficosFeriasScreen() {
         tab="FeriasStats"
         availableYears={availableYears}
         selectedYear={selectedYear}
-        onYearChange={handleYearChange}
+        onYearChange={setSelectedYear}
       />
       <ScrollView
-        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
         onScroll={event =>
           reportScroll('FeriasStats', event.nativeEvent.contentOffset.y)
         }
         scrollEventThrottle={16}
       >
-        <View style={[styles.content, isLargeScreen && styles.contentLarge]}>
-          <ThemedText type="title" style={styles.title}>Gráficos de Ferias</ThemedText>
+        <View style={[styles.content, { width: contentWidth }]}>
+          <ThemedText type="title" style={styles.title}>
+            Recorrido de Ferias
+          </ThemedText>
 
-          <ThemedView type="card" style={[styles.chartContainer, isLargeScreen && styles.chartContainerLarge]}>
-            <ThemedText type="subtitle" style={styles.chartTitle}>Distribución de Ferias</ThemedText>
-            <PieChart
-              data={Object.entries(feriasPorMes).map(([key, value], index) => ({
-                name: key,
-                population: value,
-                color: `hsl(${index * 60}, 70%, 60%)`,
-                legendFontColor: theme.text,
-                legendFontSize: 12,
-              }))}
-              width={screenWidth - 40}
-              height={220}
-              chartConfig={chartConfig}
-              accessor="population"
-              backgroundColor="transparent"
-              paddingLeft="15"
-              absolute
-            />
+          <ThemedView type="card" style={styles.card}>
+            <View style={styles.cardHeading}>
+              <Ionicons name="map" size={24} color={theme.buttonPrimary} />
+              <View style={styles.headingText}>
+                <ThemedText type="subtitle">Mapa del recorrido</ThemedText>
+                <ThemedText style={styles.muted}>
+                  Ordenado por fecha de inicio
+                </ThemedText>
+              </View>
+            </View>
+            {route.ferias.length ? (
+              <>
+                <FeriaRouteMap ferias={route.ferias} />
+                <View style={styles.metrics}>
+                  <View style={styles.metric}>
+                    <ThemedText style={styles.metricValue}>
+                      {route.ferias.length}
+                    </ThemedText>
+                    <ThemedText style={styles.muted}>ferias ubicadas</ThemedText>
+                  </View>
+                  <View style={styles.metric}>
+                    <ThemedText style={styles.metricValue}>
+                      {estimatedRoadKm.toFixed(0)} km
+                    </ThemedText>
+                    <ThemedText style={styles.muted}>
+                      carretera estimada
+                    </ThemedText>
+                  </View>
+                </View>
+                <ThemedText style={styles.disclaimer}>
+                  Estimación inicial: distancia geográfica + 18 %. Para rutas
+                  exactas por carretera se conectará un proveedor de navegación.
+                </ThemedText>
+                {route.legs.map(leg => (
+                  <View
+                    key={`${leg.origin.idFeria}-${leg.destination.idFeria}`}
+                    style={[styles.routeLeg, { borderColor: theme.border }]}
+                  >
+                    <ThemedText style={styles.routeNames}>
+                      {leg.origin.nombre} → {leg.destination.nombre}
+                    </ThemedText>
+                    <ThemedText style={{ color: theme.buttonPrimary }}>
+                      {(leg.directKm * ROAD_ESTIMATE_FACTOR).toFixed(0)} km
+                    </ThemedText>
+                  </View>
+                ))}
+              </>
+            ) : (
+              <View style={styles.emptyMap}>
+                <Ionicons
+                  name="location-outline"
+                  size={42}
+                  color={theme.placeholder}
+                />
+                <ThemedText style={styles.emptyText}>
+                  Añade ubicación al menos a una feria para verla en el mapa.
+                </ThemedText>
+              </View>
+            )}
           </ThemedView>
 
-          <ThemedView type="card" style={[styles.summaryContainer, isLargeScreen && styles.summaryContainerLarge]}>
-            <ThemedText type="subtitle" style={styles.chartTitle}>Resumen por Mes</ThemedText>
-            {Object.entries(feriasPorMes).map(([mes, cantidad]) => (
-              <ThemedView type="card" key={mes} style={styles.summaryItem}>
-                <ThemedText type="subtitle" style={styles.mesName}>{mes}</ThemedText>
-                <ThemedText style={[styles.cantidadText, { color: theme.buttonPrimary }]}>{cantidad} ferias</ThemedText>
-              </ThemedView>
-            ))}
+          <ThemedView type="card" style={styles.card}>
+            <ThemedText type="subtitle" style={styles.sectionTitle}>
+              Distribución por meses
+            </ThemedText>
+            {Object.keys(feriasPorMes).length ? (
+              <PieChart
+                data={Object.entries(feriasPorMes).map(
+                  ([name, population], index) => ({
+                    name,
+                    population,
+                    color: `hsl(${index * 57}, 72%, 58%)`,
+                    legendFontColor: theme.text,
+                    legendFontSize: 12,
+                  }),
+                )}
+                width={pieWidth}
+                height={220}
+                chartConfig={{
+                  color: opacity => `rgba(22,139,255,${opacity})`,
+                  labelColor: () => theme.text,
+                }}
+                accessor="population"
+                backgroundColor="transparent"
+                paddingLeft="10"
+                absolute
+              />
+            ) : (
+              <ThemedText style={styles.emptyText}>
+                No hay ferias para este periodo.
+              </ThemedText>
+            )}
+          </ThemedView>
+
+          <ThemedView type="card" style={styles.card}>
+            <View style={styles.cardHeading}>
+              <Ionicons name="calculator" size={24} color="#30D158" />
+              <View style={styles.headingText}>
+                <ThemedText type="subtitle">Calculadora de combustible</ThemedText>
+                <ThemedText style={styles.muted}>
+                  Los valores quedan guardados en este dispositivo.
+                </ThemedText>
+              </View>
+            </View>
+            <View style={styles.inputRow}>
+              <View style={styles.inputGroup}>
+                <ThemedText style={styles.inputLabel}>Consumo L/100 km</ThemedText>
+                <TextInput
+                  value={litresPer100}
+                  onChangeText={value => {
+                    setLitresPer100(value);
+                    persistCalculator(value, pricePerLitre);
+                  }}
+                  keyboardType="decimal-pad"
+                  style={[
+                    styles.input,
+                    {
+                      color: theme.text,
+                      borderColor: theme.border,
+                      backgroundColor: theme.inputBackground,
+                    },
+                  ]}
+                />
+              </View>
+              <View style={styles.inputGroup}>
+                <ThemedText style={styles.inputLabel}>Precio por litro (€)</ThemedText>
+                <TextInput
+                  value={pricePerLitre}
+                  onChangeText={value => {
+                    setPricePerLitre(value);
+                    persistCalculator(litresPer100, value);
+                  }}
+                  keyboardType="decimal-pad"
+                  style={[
+                    styles.input,
+                    {
+                      color: theme.text,
+                      borderColor: theme.border,
+                      backgroundColor: theme.inputBackground,
+                    },
+                  ]}
+                />
+              </View>
+            </View>
+            <View style={[styles.result, { backgroundColor: `${theme.success}18` }]}>
+              <ThemedText style={styles.resultLabel}>Coste estimado</ThemedText>
+              <ThemedText style={[styles.resultValue, { color: theme.success }]}>
+                {estimatedCost.toFixed(2)} €
+              </ThemedText>
+              <ThemedText style={styles.muted}>
+                {estimatedLitres.toFixed(1)} litros para{' '}
+                {estimatedRoadKm.toFixed(0)} km
+              </ThemedText>
+            </View>
           </ThemedView>
         </View>
       </ScrollView>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  center: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  scrollContent: { alignItems: 'center', paddingBottom: 130 },
+  content: { paddingHorizontal: 16, paddingTop: 20, gap: 16 },
+  title: { textAlign: 'center', color: '#168BFF', marginBottom: 2 },
+  card: { borderRadius: 18, padding: 16, overflow: 'hidden' },
+  cardHeading: { flexDirection: 'row', gap: 11, alignItems: 'center', marginBottom: 14 },
+  headingText: { flex: 1 },
+  muted: { opacity: 0.65, fontSize: 13, lineHeight: 18 },
+  sectionTitle: { textAlign: 'center', marginBottom: 8 },
+  metrics: { flexDirection: 'row', gap: 12, marginTop: 14 },
+  metric: { flex: 1, alignItems: 'center' },
+  metricValue: { fontSize: 24, fontWeight: '800', color: '#168BFF' },
+  disclaimer: { fontSize: 12, opacity: 0.65, lineHeight: 17, marginVertical: 12 },
+  routeLeg: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  routeNames: { flex: 1 },
+  emptyMap: { minHeight: 180, justifyContent: 'center', alignItems: 'center', gap: 10 },
+  emptyText: { textAlign: 'center', opacity: 0.7 },
+  inputRow: { flexDirection: 'row', gap: 12 },
+  inputGroup: { flex: 1 },
+  inputLabel: { fontSize: 13, marginBottom: 7 },
+  input: { borderWidth: 1, borderRadius: 11, paddingHorizontal: 12, height: 48 },
+  result: { marginTop: 16, padding: 16, borderRadius: 14, alignItems: 'center' },
+  resultLabel: { fontWeight: '700' },
+  resultValue: { fontSize: 32, fontWeight: '900', marginVertical: 3 },
+  errorText: { textAlign: 'center', marginVertical: 16 },
+  retry: { borderRadius: 10, paddingHorizontal: 20, paddingVertical: 12 },
+  whiteText: { color: 'white', fontWeight: '700' },
+});
