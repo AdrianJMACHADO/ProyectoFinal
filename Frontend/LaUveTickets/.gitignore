@@ -7,6 +7,9 @@ node_modules/
 .expo/
 dist/
 web-build/
+APK/
+.gradle-user-home/
+.expo-release-*/
 expo-env.d.ts
 
 # Native

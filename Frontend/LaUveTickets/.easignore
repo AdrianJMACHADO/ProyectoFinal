@@ -24,6 +24,9 @@ android/.cxx/
 android/app/.cxx/
 android/app/build/
 android/build/
+APK/
+.gradle-user-home/
+.expo-release-*/
 
 # Local tooling
 .kotlin/
