@@ -22,6 +22,10 @@ service cloud.firestore {
       return activeUser() && profile().role in ['SUPERADMIN', 'ADMIN'];
     }
 
+    function isSuperAdmin() {
+      return activeUser() && profile().role == 'SUPERADMIN';
+    }
+
     function isEmployee() {
       return activeUser() && profile().role == 'EMPLEADO';
     }
@@ -42,33 +46,58 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    match /configuracion/plantillaPdf {
+      allow read: if activeUser();
+      allow create, update: if isSuperAdmin();
+      allow delete: if false;
+    }
+
     match /usuarios/{userId} {
       allow get: if activeUser()
-        && (request.auth.uid == userId || isAdmin());
-      allow list: if isAdmin();
+        && (request.auth.uid == userId || isSuperAdmin());
+      allow list: if isSuperAdmin();
       allow create: if (
           request.auth.uid == userId
           && bootstrapOwner()
           && request.resource.data.role == 'SUPERADMIN'
         ) || (
-          isAdmin()
+          isSuperAdmin()
           && request.resource.data.role in ['ADMIN', 'EMPLEADO']
         );
-      allow update: if isAdmin()
+      allow update: if isSuperAdmin()
         && resource.data.role != 'SUPERADMIN'
         && request.resource.data.role in ['ADMIN', 'EMPLEADO'];
       allow delete: if false;
     }
 
+    match /login_aliases/{username} {
+      // El login solo puede consultar un nombre exacto; nunca enumerar alias.
+      allow get: if true;
+      allow list: if false;
+      allow create: if isSuperAdmin()
+        && request.resource.data.email is string
+        && request.resource.data.uid is string;
+      allow update, delete: if false;
+    }
+
     match /ferias/{feriaId} {
-      allow read, create, update: if isAdmin();
+      allow read, create: if isAdmin();
+      allow update: if isSuperAdmin() || (
+        isAdmin()
+        && !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['visible_en_listado'])
+      );
       allow delete: if false;
     }
 
     match /tickets/{ticketId} {
       allow get: if activeUser();
       allow list, create: if isAdmin();
-      allow update: if isAdmin() || (
+      allow update: if isSuperAdmin() || (
+        isAdmin()
+        && !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['visible_en_listado'])
+      ) || (
         isEmployee()
         && request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['usos', 'agotado'])

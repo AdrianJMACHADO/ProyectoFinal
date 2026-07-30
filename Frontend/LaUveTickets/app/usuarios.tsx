@@ -8,7 +8,10 @@ import {
   CreateManagedUserInput,
   UserProfile,
   createManagedUser,
+  ensureUserLoginAliases,
+  isValidUsername,
   listUserProfiles,
+  sendManagedUserPasswordReset,
   setUserEnabled,
   updateUserRole,
 } from '@/services/userProfiles';
@@ -35,7 +38,11 @@ const emptyForm: CreateManagedUserInput = {
   role: 'EMPLEADO',
 };
 
-export default function UsersScreen() {
+type UsersScreenProps = {
+  embedded?: boolean;
+};
+
+export default function UsersScreen({ embedded = false }: UsersScreenProps) {
   const { reportScroll } = useNavigationChrome();
   const { role, user } = useAuth();
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -62,7 +69,9 @@ export default function UsersScreen() {
   const loadUsers = async () => {
     setLoading(true);
     try {
-      setUsers(await listUserProfiles());
+      const profiles = await listUserProfiles();
+      setUsers(profiles);
+      void ensureUserLoginAliases(profiles);
     } catch (loadError) {
       Alert.alert('Error', (loadError as Error).message);
     } finally {
@@ -71,16 +80,19 @@ export default function UsersScreen() {
   };
 
   useEffect(() => {
-    if (role === 'ADMIN' || role === 'SUPERADMIN') loadUsers();
+    if (role === 'SUPERADMIN') loadUsers();
   }, [role]);
 
-  if (role === 'EMPLEADO') return <Redirect href="/tickets" />;
+  if (role !== 'SUPERADMIN') return <Redirect href="/AppTabs" />;
 
   const createUser = async () => {
     setError(null);
     const validationErrors: typeof fieldErrors = {};
     if (!form.nombre.trim()) {
-      validationErrors.nombre = 'El nombre es obligatorio.';
+      validationErrors.nombre = 'El nombre de usuario es obligatorio.';
+    } else if (!isValidUsername(form.nombre)) {
+      validationErrors.nombre =
+        'Usa entre 3 y 30 letras, números, puntos, guiones o guiones bajos.';
     }
     if (!form.email.trim()) {
       validationErrors.email = 'El correo electrónico es obligatorio.';
@@ -126,6 +138,33 @@ export default function UsersScreen() {
       item.role === 'ADMIN' ? 'EMPLEADO' : 'ADMIN',
     );
     await loadUsers();
+  };
+
+  const sendPasswordReset = (item: UserProfile) => {
+    Alert.alert(
+      'Cambiar contraseña',
+      `Se enviará un enlace de recuperación a ${item.email}.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Enviar correo',
+          onPress: async () => {
+            try {
+              await sendManagedUserPasswordReset(item.email);
+              Alert.alert(
+                'Correo enviado',
+                'El usuario recibirá un enlace oficial de Firebase para elegir una contraseña nueva.',
+              );
+            } catch (resetError) {
+              Alert.alert(
+                'No se pudo enviar',
+                (resetError as Error).message,
+              );
+            }
+          },
+        },
+      ],
+    );
   };
 
   const styles = StyleSheet.create({
@@ -183,6 +222,17 @@ export default function UsersScreen() {
       flexDirection: 'row',
       gap: 10,
       marginTop: 14,
+    },
+    resetAction: {
+      marginTop: 10,
+      minHeight: 42,
+      borderRadius: 9,
+      borderWidth: 1,
+      borderColor: theme.buttonPrimary,
+      flexDirection: 'row',
+      gap: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     action: {
       flex: 1,
@@ -247,15 +297,17 @@ export default function UsersScreen() {
 
   return (
     <View style={styles.container}>
-      <NavigationHeaderRegistration tab="Usuarios" />
-      <NavigationActionsRegistration
-        tab="Usuarios"
-        onCreate={isMobile ? openCreateModal : undefined}
-      />
+      {!embedded && <NavigationHeaderRegistration tab="Usuarios" />}
+      {!embedded && (
+        <NavigationActionsRegistration
+          tab="Usuarios"
+          onCreate={isMobile ? openCreateModal : undefined}
+        />
+      )}
       <View style={styles.content}>
         <View style={styles.titleRow}>
           <ThemedText type="title">Usuarios</ThemedText>
-          {!isMobile && (
+          {(!isMobile || embedded) && (
             <TouchableOpacity
               style={styles.addButton}
               onPress={openCreateModal}
@@ -316,18 +368,29 @@ export default function UsersScreen() {
                 </View>
 
                 {item.role !== 'SUPERADMIN' && (
-                  <View style={styles.actions}>
-                    <TouchableOpacity style={styles.action} onPress={() => toggleRole(item)}>
-                      <ThemedText>
-                        Hacer {item.role === 'ADMIN' ? 'empleado' : 'admin'}
+                  <>
+                    <View style={styles.actions}>
+                      <TouchableOpacity style={styles.action} onPress={() => toggleRole(item)}>
+                        <ThemedText>
+                          Hacer {item.role === 'ADMIN' ? 'empleado' : 'admin'}
+                        </ThemedText>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.action} onPress={() => toggleUser(item)}>
+                        <ThemedText style={{ color: item.activo ? theme.error : theme.success }}>
+                          {item.activo ? 'Desactivar' : 'Activar'}
+                        </ThemedText>
+                      </TouchableOpacity>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.resetAction}
+                      onPress={() => sendPasswordReset(item)}
+                    >
+                      <Ionicons name="mail-outline" size={19} color={theme.buttonPrimary} />
+                      <ThemedText style={{ color: theme.buttonPrimary, fontWeight: '700' }}>
+                        Enviar cambio de contraseña
                       </ThemedText>
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.action} onPress={() => toggleUser(item)}>
-                      <ThemedText style={{ color: item.activo ? theme.error : theme.success }}>
-                        {item.activo ? 'Desactivar' : 'Activar'}
-                      </ThemedText>
-                    </TouchableOpacity>
-                  </View>
+                  </>
                 )}
               </ThemedView>
             )}
@@ -346,7 +409,7 @@ export default function UsersScreen() {
                 setForm(current => ({ ...current, nombre }));
                 setFieldErrors(current => ({ ...current, nombre: undefined }));
               }}
-              placeholder="Nombre"
+              placeholder="Nombre de usuario (ej. empleado1)"
               placeholderTextColor={theme.placeholder}
             />
             {fieldErrors.nombre && (

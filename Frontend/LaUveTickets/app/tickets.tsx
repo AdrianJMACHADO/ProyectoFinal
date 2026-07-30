@@ -39,6 +39,7 @@ export type Ticket = {
   estado?: 'ACTIVO' | 'INACTIVO';
   agotado?: boolean;
   copias?: number;
+  visible_en_listado?: boolean;
 };
 
 export type Feria = {
@@ -368,17 +369,29 @@ export default function TicketsScreen() {
             .replace(/[^a-zA-Z0-9_-]+/g, '_')
             .replace(/^_+|_+$/g, '')
             .slice(0, 40) || 'ticket';
-        const finalUri =
-          `${FileSystem.cacheDirectory}LaUveTickets_${ticket.idTicket}_${safeName}.pdf`;
-        await FileSystem.deleteAsync(finalUri, { idempotent: true });
-        await FileSystem.copyAsync({ from: temporaryUri, to: finalUri });
-        pdfUris.push(finalUri);
+        if (Platform.OS === 'web') {
+          const anchor = document.createElement('a');
+          anchor.href = temporaryUri;
+          anchor.download = `LaUveTickets_${ticket.idTicket}_${safeName}.pdf`;
+          document.body.appendChild(anchor);
+          anchor.click();
+          anchor.remove();
+          window.setTimeout(
+            () => window.URL.revokeObjectURL(temporaryUri),
+            2500,
+          );
+        } else {
+          const finalUri =
+            `${FileSystem.cacheDirectory}LaUveTickets_${ticket.idTicket}_${safeName}.pdf`;
+          await FileSystem.deleteAsync(finalUri, { idempotent: true });
+          await FileSystem.copyAsync({ from: temporaryUri, to: finalUri });
+          pdfUris.push(finalUri);
+        }
       }
 
       if (Platform.OS === 'web') {
-        throw new Error(
-          'La descarga múltiple desde Web estará disponible próximamente. Puedes compartir los PDF desde Android.',
-        );
+        closeSelection();
+        return;
       }
 
       const { default: Share } = await import('react-native-share');
@@ -726,6 +739,7 @@ export default function TicketsScreen() {
 
   // Filtrar tickets por año y término de búsqueda
   const filteredTickets = tickets.filter(ticket => {
+    if (ticket.visible_en_listado === false) return false;
     const feria = ferias.find(f => f.idFeria === ticket.idFeria);
     const matchesSearch = searchQuery.toLowerCase() === '' || 
       ticket.nombre.toLowerCase().includes(searchQuery.toLowerCase()) ||

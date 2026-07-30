@@ -28,17 +28,18 @@ import FeriasScreen from './ferias';
 import GraficosFeriasScreen from './graficos-ferias';
 import GraficosTicketsScreen from './graficos-tickets';
 import TicketsScreen from './tickets';
-import UsersScreen from './usuarios';
+import AjustesScreen from './ajustes';
 
 type AppTabParamList = {
   Tickets: undefined;
   Ferias: undefined;
   Uso: undefined;
   FeriasStats: undefined;
-  Usuarios: undefined;
+  Ajustes: undefined;
 };
 
 const Tab = createMaterialTopTabNavigator<AppTabParamList>();
+const EmbeddedSettingsScreen = () => <AjustesScreen embedded />;
 
 const icons: Record<
   keyof AppTabParamList,
@@ -48,7 +49,7 @@ const icons: Record<
   Ferias: { active: 'calendar', inactive: 'calendar-outline' },
   Uso: { active: 'bar-chart', inactive: 'bar-chart-outline' },
   FeriasStats: { active: 'pie-chart', inactive: 'pie-chart-outline' },
-  Usuarios: { active: 'people', inactive: 'people-outline' },
+  Ajustes: { active: 'settings', inactive: 'settings-outline' },
 };
 
 function FloatingTabBar(props: MaterialTopTabBarProps) {
@@ -403,9 +404,9 @@ function AppTabsContent() {
           options={{ title: 'Gráficas' }}
         />
         <Tab.Screen
-          name="Usuarios"
-          component={UsersScreen}
-          options={{ title: 'Usuarios' }}
+          name="Ajustes"
+          component={EmbeddedSettingsScreen}
+          options={{ title: 'Ajustes' }}
         />
       </Tab.Navigator>
       <FloatingActions />

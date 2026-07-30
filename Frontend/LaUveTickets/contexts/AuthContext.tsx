@@ -13,6 +13,7 @@ import {
   getUserProfile,
   UserProfile,
   UserRole,
+  resolveLoginIdentifier,
 } from '../services/userProfiles';
 
 // Crear el contexto
@@ -81,16 +82,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Función de login
   const login = async (email: string, password: string) => {
     const auth = getFirebaseAuth();
-    setLoading(true);
     try {
+      const resolvedEmail = await resolveLoginIdentifier(email);
       const userCredential = await signInWithEmailAndPassword(
         auth,
-        email.trim(),
+        resolvedEmail,
         password,
       );
       setUser(userCredential.user);
     } catch (error) {
-      setLoading(false);
       throw error;
     }
   };

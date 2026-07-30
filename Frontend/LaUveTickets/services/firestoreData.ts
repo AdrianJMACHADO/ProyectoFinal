@@ -10,6 +10,7 @@ import {
   serverTimestamp,
   Timestamp,
   updateDoc,
+  writeBatch,
 } from 'firebase/firestore';
 import * as Crypto from 'expo-crypto';
 
@@ -20,6 +21,7 @@ export type FeriaRecord = {
   nombre: string;
   fecha: string;
   estado?: 'ACTIVO' | 'INACTIVO';
+  visible_en_listado?: boolean;
 };
 
 export type TicketRecord = {
@@ -33,6 +35,7 @@ export type TicketRecord = {
   usos?: number;
   estado?: 'ACTIVO' | 'INACTIVO';
   agotado?: boolean;
+  visible_en_listado?: boolean;
 };
 
 type NewFeria = Omit<FeriaRecord, 'idFeria'>;
@@ -85,7 +88,12 @@ export const subscribeFerias = (
 export const createFeria = async (data: NewFeria): Promise<FeriaRecord> => {
   const db = getFirebaseDb();
   const idFeria = await allocateNumericId(FERIAS);
-  const feria: FeriaRecord = { idFeria, estado: 'ACTIVO', ...data };
+  const feria: FeriaRecord = {
+    idFeria,
+    estado: 'ACTIVO',
+    visible_en_listado: true,
+    ...data,
+  };
   await runTransaction(db, async (transaction) => {
     transaction.set(doc(db, FERIAS, String(idFeria)), feria);
   });
@@ -213,6 +221,7 @@ export const createTicket = async (data: NewTicket): Promise<TicketRecord> => {
       usos: data.usos ?? 0,
       estado: data.estado ?? 'ACTIVO',
       agotado: false,
+      visible_en_listado: true,
       fecha_creacion: serverTimestamp(),
     });
   });
@@ -255,6 +264,7 @@ export const createTickets = async (
         usos: data.usos ?? 0,
         estado: data.estado ?? 'ACTIVO',
         agotado: false,
+        visible_en_listado: true,
         fecha_creacion: serverTimestamp(),
       });
     });
@@ -321,4 +331,32 @@ export const consumeTicket = async (idTicket: number): Promise<TicketRecord> => 
   const updated = await getTicket(idTicket);
   if (!updated) throw new Error('No se pudo recuperar el ticket actualizado');
   return updated;
+};
+
+export const setFeriasListVisibility = async (
+  ids: number[],
+  visible: boolean,
+): Promise<void> => {
+  const db = getFirebaseDb();
+  const batch = writeBatch(db);
+  ids.forEach(id =>
+    batch.update(doc(db, FERIAS, String(id)), {
+      visible_en_listado: visible,
+    }),
+  );
+  await batch.commit();
+};
+
+export const setTicketsListVisibility = async (
+  ids: number[],
+  visible: boolean,
+): Promise<void> => {
+  const db = getFirebaseDb();
+  const batch = writeBatch(db);
+  ids.forEach(id =>
+    batch.update(doc(db, TICKETS, String(id)), {
+      visible_en_listado: visible,
+    }),
+  );
+  await batch.commit();
 };

@@ -27,6 +27,7 @@ interface Feria {
   nombre: string;
   fecha: string;
   estado?: 'ACTIVO' | 'INACTIVO';
+  visible_en_listado?: boolean;
 }
 
 const FeriasScreen: React.FC = () => {
@@ -270,6 +271,7 @@ const FeriasScreen: React.FC = () => {
 
   // Filtrar ferias por año y término de búsqueda
   const filteredFerias = ferias.filter(feria => {
+    if (feria.visible_en_listado === false) return false;
     const matchesSearch = searchQuery.toLowerCase() === '' || 
       feria.nombre.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesYear = selectedYear === 'Todas las fechas' || 

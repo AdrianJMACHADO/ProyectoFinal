@@ -157,6 +157,14 @@ function RootLayoutNav() {
           <Stack.Screen name="graficos-tickets" />
           <Stack.Screen name="graficos-ferias" />
           <Stack.Screen name="usuarios" />
+          <Stack.Screen
+            name="ajustes"
+            options={{
+              animation: 'slide_from_right',
+              gestureEnabled: true,
+              fullScreenGestureEnabled: true,
+            }}
+          />
         </>
       )}
     </Stack>

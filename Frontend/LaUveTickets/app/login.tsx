@@ -102,7 +102,7 @@ export default function LoginScreen() {
             ? 'Demasiados intentos. Espera unos minutos y vuelve a probar.'
             : 'No se pudo iniciar sesión. Comprueba tu conexión e inténtalo de nuevo.',
       );
-      setInputErrors({ password: true });
+      setInputErrors({ email: true, password: true });
       setCredentialError('El usuario o la contraseña no son correctos.');
       if (invalidCredentials) {
         setPassword('');
@@ -256,12 +256,21 @@ export default function LoginScreen() {
           <View style={[styles.inputContainer, inputErrors.email && styles.inputErrorBorder]}>
             <TextInput
               style={styles.input}
-              placeholder="Email"
+              placeholder="Usuario o correo"
               placeholderTextColor={theme.placeholder}
               value={email}
-              onChangeText={(text) => { setEmail(text); setLoginError(null); setInputErrors(prev => ({ ...prev, email: false })); }}
+              onChangeText={(text) => {
+                setEmail(text);
+                setLoginError(null);
+                setCredentialError(null);
+                setInputErrors(prev => ({
+                  ...prev,
+                  email: false,
+                  password: credentialError ? false : prev.password,
+                }));
+              }}
               autoCapitalize="none"
-              keyboardType="email-address"
+              keyboardType="default"
               returnKeyType="next"
               onSubmitEditing={() => passwordInputRef.current?.focus()}
             />
@@ -284,7 +293,11 @@ export default function LoginScreen() {
                 setPassword(text);
                 setLoginError(null);
                 setCredentialError(null);
-                setInputErrors(prev => ({ ...prev, password: false }));
+                setInputErrors(prev => ({
+                  ...prev,
+                  password: false,
+                  email: credentialError ? false : prev.email,
+                }));
               }}
               secureTextEntry={!isPasswordVisible}
               onSubmitEditing={handleLogin}

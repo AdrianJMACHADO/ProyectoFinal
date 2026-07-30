@@ -5,6 +5,10 @@ import React, { useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Modal from 'react-native-modal';
 import QRCode from 'react-native-qrcode-svg';
+import {
+  getPdfBackgroundDataUrl,
+  getPdfBusinessName,
+} from '../services/pdfTemplate';
 
 // URL web anterior conservada como referencia durante la migración:
 // const LEGACY_WEB_URL = 'http://va-server.duckdns.org:8081';
@@ -47,27 +51,144 @@ export const createTicketPdf = async ({
   cantidadInicial: number;
   qrCodeBase64: string;
 }) => {
+  const [backgroundDataUrl, businessName] = await Promise.all([
+    getPdfBackgroundDataUrl(),
+    getPdfBusinessName(),
+  ]);
+
+  if (Platform.OS === 'web') {
+    const { jsPDF } = await import('jspdf/dist/jspdf.es.min.js');
+    const pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'px',
+      format: [1103, 1426],
+      hotfixes: ['px_scaling'],
+      compress: true,
+    });
+    const backgroundFormat = backgroundDataUrl.startsWith('data:image/png')
+      ? 'PNG'
+      : 'JPEG';
+    pdf.addImage(backgroundDataUrl, backgroundFormat, 0, 0, 1103, 1426);
+    pdf.setTextColor(17, 17, 17);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(30);
+    pdf.text(businessName, 551.5, 344, {
+      align: 'center',
+      baseline: 'middle',
+      maxWidth: 470,
+    });
+    pdf.setFontSize(22);
+    pdf.text(nombre, 445, 492, {
+      align: 'left',
+      baseline: 'middle',
+      maxWidth: 463,
+    });
+    pdf.text(tipo, 429, 605, {
+      align: 'left',
+      baseline: 'middle',
+      maxWidth: 479,
+    });
+    pdf.text(String(cantidadInicial), 570, 716, {
+      align: 'left',
+      baseline: 'middle',
+      maxWidth: 338,
+    });
+    pdf.setFillColor(255, 255, 255);
+    pdf.rect(317, 862, 468, 468, 'F');
+    pdf.addImage(qrCodeBase64, 'PNG', 317, 862, 468, 468);
+    return String(pdf.output('bloburl'));
+  }
+
   const htmlContent = `
     <html>
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <style>
-          body { font-family: Arial, sans-serif; text-align: center; padding: 20px; }
-          h1 { color: #000; font-size: 36px; margin-bottom: 5px; }
-          .label { font-size: 18px; font-weight: bold; margin: 15px 0 5px; }
-          .value { font-size: 18px; margin-bottom: 10px; }
-          .qrContainer { margin-top: 30px; display: flex; justify-content: center; }
-          img { width: 250px; height: 250px; }
+          @page { size: letter portrait; margin: 0; }
+          html, body {
+            width: 8.5in;
+            height: 11in;
+            margin: 0;
+            padding: 0;
+          }
+          body {
+            position: relative;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            background: #fff;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+          .pageBackground {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: fill;
+            z-index: 0;
+          }
+          .value {
+            position: absolute;
+            height: 4%;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            box-sizing: border-box;
+            overflow: hidden;
+            color: #111;
+            font-size: 15pt;
+            font-weight: 700;
+            line-height: 1.05;
+            text-align: left;
+            z-index: 1;
+          }
+          .business {
+            position: absolute;
+            left: 27%;
+            top: 21.4%;
+            width: 46%;
+            height: 5.3%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            color: #111;
+            font-size: 20pt;
+            font-weight: 700;
+            line-height: 1;
+            text-align: center;
+            z-index: 1;
+          }
+          .name { left: 40.35%; top: 32.5%; width: 42%; }
+          .type { left: 38.9%; top: 40.4%; width: 43.4%; }
+          .trips { left: 51.68%; top: 48.2%; width: 30.6%; }
+          .qrContainer {
+            position: absolute;
+            left: 28.7%;
+            top: 60.45%;
+            width: 42.45%;
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-sizing: border-box;
+            padding: 0;
+            background: #fff;
+            z-index: 1;
+          }
+          .qrContainer img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+          }
         </style>
       </head>
       <body>
-        <h1>LA UVE</h1>
-        <p class="label">Nombre:</p>
-        <p class="value">${escapeHtml(nombre)}</p>
-        <p class="label">Tipo:</p>
-        <p class="value">${escapeHtml(tipo)}</p>
-        <p class="label">Cantidad Inicial:</p>
-        <p class="value">${cantidadInicial}</p>
+        <img class="pageBackground" src="${backgroundDataUrl}" />
+        <div class="business">${escapeHtml(businessName)}</div>
+        <div class="value name">${escapeHtml(nombre)}</div>
+        <div class="value type">${escapeHtml(tipo)}</div>
+        <div class="value trips">${cantidadInicial}</div>
         <div class="qrContainer"><img src="${qrCodeBase64}" /></div>
       </body>
     </html>
@@ -113,17 +234,13 @@ export const QRGenerator: React.FC<QRGeneratorProps> = ({ isVisible, onClose, ti
       });
 
       if (Platform.OS === 'web') {
-        // Intento de descarga directa en web
-        const response = await fetch(uri);
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = url;
+        a.href = uri;
         a.download = `ticket_${ticketId}_${nombre.replace(/\s+/g, '_')}.pdf`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
+        window.setTimeout(() => window.URL.revokeObjectURL(uri), 1500);
       } else {
         // En móvil, usar shareAsync
         await shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });

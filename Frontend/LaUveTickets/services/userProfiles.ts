@@ -4,6 +4,7 @@ import {
   createUserWithEmailAndPassword,
   deleteUser,
   getAuth,
+  sendPasswordResetEmail,
   signOut,
 } from 'firebase/auth';
 import { deleteApp, initializeApp } from 'firebase/app';
@@ -12,8 +13,8 @@ import {
   collection,
   getDoc,
   getDocs,
+  runTransaction,
   serverTimestamp,
-  setDoc,
   updateDoc,
   writeBatch,
 } from 'firebase/firestore';
@@ -30,6 +31,7 @@ export interface UserProfile {
   uid: string;
   email: string;
   nombre: string;
+  username?: string;
   role: UserRole;
   activo: boolean;
   createdAt?: unknown;
@@ -41,6 +43,35 @@ export interface CreateManagedUserInput {
   nombre: string;
   role: Exclude<UserRole, 'SUPERADMIN'>;
 }
+
+const LOGIN_ALIASES = 'login_aliases';
+
+export const normalizeUsername = (value: string) =>
+  value.trim().toLowerCase();
+
+export const isValidUsername = (value: string) =>
+  /^[a-z0-9._-]{3,30}$/.test(normalizeUsername(value));
+
+export const resolveLoginIdentifier = async (
+  identifier: string,
+): Promise<string> => {
+  const normalized = normalizeUsername(identifier);
+  if (normalized.includes('@')) return normalized;
+  if (!isValidUsername(normalized)) {
+    throw Object.assign(new Error('Usuario no válido'), {
+      code: 'auth/invalid-credential',
+    });
+  }
+
+  const alias = await getDoc(doc(getFirebaseDb(), LOGIN_ALIASES, normalized));
+  const email = alias.exists() ? alias.data().email : null;
+  if (typeof email !== 'string' || !email.includes('@')) {
+    throw Object.assign(new Error('Usuario no encontrado'), {
+      code: 'auth/invalid-credential',
+    });
+  }
+  return email;
+};
 
 export const hasInitialOwner = async (): Promise<boolean> => {
   const snapshot = await getDoc(
@@ -138,6 +169,12 @@ const getFirebaseAuthForApp = (app: ReturnType<typeof initializeApp>) => {
 export const createManagedUser = async (
   input: CreateManagedUserInput,
 ): Promise<UserProfile> => {
+  const username = normalizeUsername(input.nombre);
+  if (!isValidUsername(username)) {
+    throw new Error(
+      'El nombre de usuario debe tener entre 3 y 30 caracteres y solo usar letras, números, punto, guion o guion bajo.',
+    );
+  }
   const activeApp = getActiveFirebaseApp();
   const { auth, cleanup } = createSecondaryAuth(
     activeApp.options as FirebaseConnectionConfig,
@@ -152,14 +189,33 @@ export const createManagedUser = async (
     const profile: UserProfile = {
       uid: credential.user.uid,
       email: input.email.trim(),
-      nombre: input.nombre.trim(),
+      nombre: username,
+      username,
       role: input.role,
       activo: true,
       createdAt: serverTimestamp(),
     };
 
-    await setDoc(doc(getFirebaseDb(), 'usuarios', credential.user.uid), profile);
+    const db = getFirebaseDb();
+    const aliasRef = doc(db, LOGIN_ALIASES, username);
+    const profileRef = doc(db, 'usuarios', credential.user.uid);
+    await runTransaction(db, async transaction => {
+      const aliasSnapshot = await transaction.get(aliasRef);
+      if (aliasSnapshot.exists()) {
+        throw new Error('Ese nombre de usuario ya está en uso.');
+      }
+      transaction.set(aliasRef, {
+        email: input.email.trim().toLowerCase(),
+        uid: credential.user.uid,
+      });
+      transaction.set(profileRef, profile);
+    });
     return profile;
+  } catch (error) {
+    if (auth.currentUser) {
+      await deleteUser(auth.currentUser).catch(() => undefined);
+    }
+    throw error;
   } finally {
     await cleanup();
   }
@@ -174,6 +230,35 @@ export const listUserProfiles = async (): Promise<UserProfile[]> => {
   return snapshot.docs
     .map(item => item.data() as UserProfile)
     .sort((a, b) => a.nombre.localeCompare(b.nombre));
+};
+
+export const ensureUserLoginAliases = async (
+  profiles: UserProfile[],
+): Promise<void> => {
+  const db = getFirebaseDb();
+  await Promise.all(
+    profiles.map(async profile => {
+      if (profile.role === 'SUPERADMIN') return;
+      const username = normalizeUsername(profile.username ?? profile.nombre);
+      if (!isValidUsername(username) || !profile.email) return;
+      const aliasRef = doc(db, LOGIN_ALIASES, username);
+      await runTransaction(db, async transaction => {
+        const existing = await transaction.get(aliasRef);
+        if (existing.exists()) return;
+        transaction.set(aliasRef, {
+          email: profile.email.trim().toLowerCase(),
+          uid: profile.uid,
+        });
+        transaction.update(doc(db, 'usuarios', profile.uid), { username });
+      }).catch(() => undefined);
+    }),
+  );
+};
+
+export const sendManagedUserPasswordReset = async (
+  email: string,
+): Promise<void> => {
+  await sendPasswordResetEmail(getFirebaseAuth(), email.trim().toLowerCase());
 };
 
 export const updateUserRole = async (
