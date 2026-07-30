@@ -531,14 +531,16 @@ const FeriasScreen: React.FC = () => {
     modalContent: {
       width: '100%',
       maxWidth: 480,
+      height: '91%',
       borderRadius: 20,
-      padding: 22,
+      paddingTop: 22,
+      paddingHorizontal: 22,
+      paddingBottom: 0,
       elevation: 8,
       shadowColor: theme.shadow,
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.25,
       shadowRadius: 6,
-      maxHeight: '91%',
     },
     modalTitle: {
       marginBottom: 20,
@@ -565,7 +567,10 @@ const FeriasScreen: React.FC = () => {
     modalButtons: {
       flexDirection: 'row',
       justifyContent: 'space-between',
-      marginTop: 8,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      paddingTop: 12,
+      paddingBottom: 14,
+      marginTop: 4,
     },
     modalButton: {
       flex: 1,
@@ -608,8 +613,8 @@ const FeriasScreen: React.FC = () => {
       borderRadius: 10,
       alignItems: 'center',
     },
-    modalScroll: { width: '100%' },
-    modalScrollContent: { paddingBottom: 4 },
+    modalScroll: { width: '100%', flex: 1 },
+    modalScrollContent: { paddingBottom: 18 },
     sectionLabel: { marginTop: 4, marginBottom: 10, fontWeight: '700' },
     rangeCalendar: {
       marginTop: 10,
@@ -808,6 +813,7 @@ const FeriasScreen: React.FC = () => {
                   />
                 </View>
               ) : (
+              <>
               <ScrollView
                 style={styles.modalScroll}
                 contentContainerStyle={styles.modalScrollContent}
@@ -954,14 +960,21 @@ const FeriasScreen: React.FC = () => {
                   </ThemedText>
                 )}
 
-                <View style={styles.modalButtons}>
+              </ScrollView>
+              <View
+                style={[
+                  styles.modalButtons,
+                  {
+                    borderTopColor: theme.border,
+                    backgroundColor: theme.card,
+                  },
+                ]}
+              >
                 <TouchableOpacity
                   style={[styles.modalButton, { backgroundColor: '#4CAF50' }]}
                   onPress={async () => {
                     const success = await saveFeria();
-                    if (success) {
-                      closeModal();
-                    }
+                    if (success) closeModal();
                   }}
                 >
                   <ThemedText type="button" style={styles.buttonText}>
@@ -970,14 +983,14 @@ const FeriasScreen: React.FC = () => {
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.modalButton, { backgroundColor: theme.error }]}
-                  onPress={() => {
-                    closeModal();
-                  }}
+                  onPress={closeModal}
                 >
-                  <ThemedText type="button" style={styles.buttonText}>Cancelar</ThemedText>
+                  <ThemedText type="button" style={styles.buttonText}>
+                    Cancelar
+                  </ThemedText>
                 </TouchableOpacity>
-                </View>
-              </ScrollView>
+              </View>
+              </>
               )}
               </ThemedView>
             </Pressable>
