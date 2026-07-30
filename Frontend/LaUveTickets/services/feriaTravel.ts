@@ -13,11 +13,18 @@ export const hasFeriaLocation = (
 ): feria is FeriaWithLocation =>
   Number.isFinite(feria.latitud) && Number.isFinite(feria.longitud);
 
+const validDate = (value?: string) => {
+  const date = value ? new Date(value) : new Date(Number.NaN);
+  return Number.isNaN(date.getTime()) ? undefined : date;
+};
+
 export const getFeriaStart = (feria: FeriaRecord) =>
-  new Date(feria.fechaInicio ?? feria.fecha);
+  validDate(feria.fechaInicio) ??
+  validDate(feria.fecha) ??
+  new Date(8640000000000000);
 
 export const getFeriaEnd = (feria: FeriaRecord) =>
-  new Date(feria.fechaFin ?? feria.fechaInicio ?? feria.fecha);
+  validDate(feria.fechaFin) ?? getFeriaStart(feria);
 
 export const calculateDirectDistanceKm = (
   from: FeriaWithLocation,
@@ -42,7 +49,14 @@ export const calculateDirectDistanceKm = (
 export const buildFeriaRoute = (ferias: FeriaRecord[]) => {
   const located = ferias
     .filter(hasFeriaLocation)
-    .sort((a, b) => getFeriaStart(a).getTime() - getFeriaStart(b).getTime());
+    .sort((a, b) => {
+      const startDifference =
+        getFeriaStart(a).getTime() - getFeriaStart(b).getTime();
+      if (startDifference !== 0) return startDifference;
+      const endDifference = getFeriaEnd(a).getTime() - getFeriaEnd(b).getTime();
+      if (endDifference !== 0) return endDifference;
+      return Number(a.idFeria) - Number(b.idFeria);
+    });
   const legs = located.slice(1).map((destination, index) => {
     const origin = located[index];
     return {

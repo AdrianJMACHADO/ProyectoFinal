@@ -30,13 +30,42 @@ export type FeriaRecord = {
   visible_en_listado?: boolean;
 };
 
+const timestampToIso = (value: unknown): string | undefined => {
+  if (value instanceof Timestamp) {
+    return value.toDate().toISOString();
+  }
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value.toISOString();
+  }
+  if (
+    value &&
+    typeof value === 'object' &&
+    'toDate' in value &&
+    typeof (value as { toDate?: unknown }).toDate === 'function'
+  ) {
+    const date = (value as { toDate: () => Date }).toDate();
+    return !Number.isNaN(date.getTime()) ? date.toISOString() : undefined;
+  }
+  if (typeof value === 'string' && !Number.isNaN(new Date(value).getTime())) {
+    return new Date(value).toISOString();
+  }
+  return undefined;
+};
+
 const normalizeFeria = (data: Record<string, unknown>): FeriaRecord => {
-  const fecha = String(data.fechaInicio ?? data.fecha ?? new Date().toISOString());
+  const fecha =
+    timestampToIso(data.fechaInicio) ??
+    timestampToIso(data.fecha) ??
+    new Date().toISOString();
+  const fechaFin =
+    timestampToIso(data.fechaFin) ??
+    timestampToIso(data.fechaInicio) ??
+    fecha;
   return {
     ...(data as FeriaRecord),
     fecha,
-    fechaInicio: String(data.fechaInicio ?? fecha),
-    fechaFin: String(data.fechaFin ?? data.fechaInicio ?? fecha),
+    fechaInicio: fecha,
+    fechaFin,
     latitud:
       typeof data.latitud === 'number' ? data.latitud : undefined,
     longitud:
@@ -67,13 +96,6 @@ const COUNTERS = 'counters';
 
 const generateQrToken = () =>
   `${Crypto.randomUUID()}${Crypto.randomUUID()}`.replace(/-/g, '').toLowerCase();
-
-const timestampToIso = (value: unknown): string | undefined => {
-  if (value instanceof Timestamp) {
-    return value.toDate().toISOString();
-  }
-  return typeof value === 'string' ? value : undefined;
-};
 
 const allocateNumericId = async (counterName: string): Promise<number> => {
   const db = getFirebaseDb();
