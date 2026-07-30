@@ -6,6 +6,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
+import { Calendar, DateData } from 'react-native-calendars';
 import { ActivityIndicator, Alert, Dimensions, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import FeriaLocationPicker, {
   FeriaLocationValue,
@@ -67,6 +68,8 @@ const FeriasScreen: React.FC = () => {
   const [selectedYear, setSelectedYear] = useState<string | null>(null);
   const [availableYears, setAvailableYears] = useState<string[]>([]);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showRangeCalendar, setShowRangeCalendar] = useState(false);
+  const [showLocationPage, setShowLocationPage] = useState(false);
   const [pendingDate, setPendingDate] = useState<Date>(new Date());
   const [dateTarget, setDateTarget] = useState<'fechaInicio' | 'fechaFin'>(
     'fechaInicio',
@@ -205,9 +208,57 @@ const FeriasScreen: React.FC = () => {
 
   const closeModal = () => {
     setShowDatePicker(false);
+    setShowRangeCalendar(false);
+    setShowLocationPage(false);
     setModalVisible(false);
     setModalError(null);
   };
+
+  const selectRangeDay = (day: DateData) => {
+    const selected = new Date(`${day.dateString}T12:00:00`);
+    const currentStart = form.fechaInicio
+      ? new Date(form.fechaInicio)
+      : undefined;
+    const rangeComplete = Boolean(form.fechaInicio && form.fechaFin);
+
+    if (!currentStart || rangeComplete || selected < currentStart) {
+      setForm(current => ({
+        ...current,
+        fecha: selected.toISOString(),
+        fechaInicio: selected.toISOString(),
+        fechaFin: '',
+      }));
+      setFormErrors(current => ({
+        ...current,
+        fechaInicio: undefined,
+        fechaFin: undefined,
+      }));
+      return;
+    }
+
+    setForm(current => ({ ...current, fechaFin: selected.toISOString() }));
+    setFormErrors(current => ({ ...current, fechaFin: undefined }));
+    setShowRangeCalendar(false);
+  };
+
+  const rangeMarks = React.useMemo(() => {
+    if (!form.fechaInicio) return {};
+    const start = new Date(form.fechaInicio);
+    const end = form.fechaFin ? new Date(form.fechaFin) : start;
+    const marks: Record<string, any> = {};
+    const cursor = new Date(start);
+    while (cursor <= end) {
+      const key = format(cursor, 'yyyy-MM-dd');
+      marks[key] = {
+        color: theme.buttonPrimary,
+        textColor: 'white',
+        startingDay: key === format(start, 'yyyy-MM-dd'),
+        endingDay: key === format(end, 'yyyy-MM-dd'),
+      };
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    return marks;
+  }, [form.fechaFin, form.fechaInicio, theme.buttonPrimary]);
 
   const openDatePicker = (target: 'fechaInicio' | 'fechaFin') => {
     setDateTarget(target);
@@ -560,6 +611,46 @@ const FeriasScreen: React.FC = () => {
     modalScroll: { width: '100%' },
     modalScrollContent: { paddingBottom: 4 },
     sectionLabel: { marginTop: 4, marginBottom: 10, fontWeight: '700' },
+    rangeCalendar: {
+      marginTop: 10,
+      borderWidth: 1,
+      borderRadius: 14,
+      overflow: 'hidden',
+      paddingBottom: 8,
+    },
+    rangeHelp: {
+      textAlign: 'center',
+      opacity: 0.65,
+      fontSize: 12,
+      paddingHorizontal: 10,
+    },
+    locationSummary: {
+      minHeight: 66,
+      borderWidth: 1,
+      borderRadius: 12,
+      paddingHorizontal: 13,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 11,
+      marginBottom: 12,
+    },
+    locationPage: {
+      zIndex: 20,
+      minHeight: 650,
+      padding: 16,
+    },
+    locationHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      marginBottom: 14,
+    },
+    locationBack: {
+      width: 42,
+      height: 42,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
   });
 
   if (error) {
@@ -662,6 +753,61 @@ const FeriasScreen: React.FC = () => {
           >
             <Pressable style={{ width: '100%', alignItems: 'center' }} onPress={(event) => event.stopPropagation()}>
               <ThemedView type="card" style={styles.modalContent}>
+              {showLocationPage ? (
+                <View
+                  style={[
+                    styles.locationPage,
+                    { backgroundColor: theme.background },
+                  ]}
+                >
+                  <View style={styles.locationHeader}>
+                    <TouchableOpacity
+                      style={styles.locationBack}
+                      onPress={() => setShowLocationPage(false)}
+                    >
+                      <Ionicons
+                        name="arrow-back"
+                        size={26}
+                        color={theme.buttonPrimary}
+                      />
+                    </TouchableOpacity>
+                    <ThemedText type="subtitle" style={{ flex: 1 }}>
+                      Ubicación de la feria
+                    </ThemedText>
+                    <TouchableOpacity onPress={() => setShowLocationPage(false)}>
+                      <ThemedText
+                        style={{
+                          color: theme.buttonPrimary,
+                          fontWeight: '800',
+                        }}
+                      >
+                        Listo
+                      </ThemedText>
+                    </TouchableOpacity>
+                  </View>
+                  <FeriaLocationPicker
+                    initialSearch={form.nombre}
+                    value={
+                      Number.isFinite(form.latitud) &&
+                      Number.isFinite(form.longitud)
+                        ? ({
+                            latitud: form.latitud!,
+                            longitud: form.longitud!,
+                            ubicacionNombre: form.ubicacionNombre,
+                            ubicacionOrigen: form.ubicacionOrigen ?? 'MAPA',
+                          } satisfies FeriaLocationValue)
+                        : undefined
+                    }
+                    onChange={location => {
+                      setForm(current => ({ ...current, ...location }));
+                      setFormErrors(current => ({
+                        ...current,
+                        ubicacion: undefined,
+                      }));
+                    }}
+                  />
+                </View>
+              ) : (
               <ScrollView
                 style={styles.modalScroll}
                 contentContainerStyle={styles.modalScrollContent}
@@ -692,124 +838,110 @@ const FeriasScreen: React.FC = () => {
                   </ThemedText>
                 )}
 
-                {(['fechaInicio', 'fechaFin'] as const).map(target => {
-                  const label =
-                    target === 'fechaInicio' ? 'Fecha de inicio' : 'Fecha de fin';
-                  const fieldError = formErrors[target];
-                  return (
-                    <View style={styles.inputGroup} key={target}>
-                      <ThemedText style={styles.label}>{label}</ThemedText>
-                      {Platform.OS === 'web' ? (
-                        <input
-                          type="date"
-                          value={
-                            form[target]
-                              ? format(new Date(form[target]), 'yyyy-MM-dd')
-                              : ''
-                          }
-                          onChange={event =>
-                            commitDate(
-                              new Date(`${event.target.value}T12:00:00`),
-                              target,
-                            )
-                          }
-                          style={{
-                            padding: 12,
-                            height: 48,
-                            borderRadius: 8,
-                            color: theme.text,
-                            backgroundColor: theme.inputBackground,
-                            border: `1px solid ${
-                              fieldError ? theme.error : theme.border
-                            }`,
-                          }}
-                        />
-                      ) : Platform.OS === 'ios' ? (
-                        <View
-                          style={[
-                            styles.input,
-                            styles.dateButton,
-                            {
-                              backgroundColor: theme.inputBackground,
-                              borderColor: fieldError
-                                ? theme.error
-                                : theme.border,
-                            },
-                          ]}
-                        >
-                          <ThemedText>{label}</ThemedText>
-                          <DateTimePicker
-                            value={
-                              form[target]
-                                ? new Date(form[target])
-                                : new Date()
-                            }
-                            mode="date"
-                            display="compact"
-                            locale="es-ES"
-                            onChange={(_, selectedDate) => {
-                              if (selectedDate) commitDate(selectedDate, target);
-                            }}
-                          />
-                        </View>
-                      ) : (
-                        <TouchableOpacity
-                          style={[
-                            styles.input,
-                            styles.dateButton,
-                            {
-                              backgroundColor: theme.inputBackground,
-                              borderColor: fieldError
-                                ? theme.error
-                                : theme.border,
-                            },
-                          ]}
-                          onPress={() => openDatePicker(target)}
-                        >
-                          <ThemedText>
-                            {form[target]
-                              ? format(new Date(form[target]), 'dd/MM/yyyy')
-                              : `Seleccionar ${label.toLowerCase()}`}
-                          </ThemedText>
-                          <Ionicons
-                            name="calendar-outline"
-                            size={22}
-                            color={theme.buttonPrimary}
-                          />
-                        </TouchableOpacity>
-                      )}
-                      {fieldError && (
-                        <ThemedText
-                          style={[styles.errorText, { color: theme.error }]}
-                        >
-                          {fieldError}
-                        </ThemedText>
-                      )}
+                <View style={styles.inputGroup}>
+                  <ThemedText style={styles.label}>Fechas de la feria</ThemedText>
+                  <TouchableOpacity
+                    style={[
+                      styles.input,
+                      styles.dateButton,
+                      {
+                        backgroundColor: theme.inputBackground,
+                        borderColor:
+                          formErrors.fechaInicio || formErrors.fechaFin
+                            ? theme.error
+                            : theme.border,
+                      },
+                    ]}
+                    onPress={() => setShowRangeCalendar(value => !value)}
+                  >
+                    <View>
+                      <ThemedText style={{ fontWeight: '700' }}>
+                        {form.fechaInicio
+                          ? format(new Date(form.fechaInicio), 'dd/MM/yyyy')
+                          : 'Seleccionar inicio'}
+                        {'  →  '}
+                        {form.fechaFin
+                          ? format(new Date(form.fechaFin), 'dd/MM/yyyy')
+                          : 'Seleccionar fin'}
+                      </ThemedText>
+                      <ThemedText style={{ opacity: 0.6, fontSize: 12 }}>
+                        Elige primero la entrada y después la salida
+                      </ThemedText>
                     </View>
-                  );
-                })}
+                    <Ionicons
+                      name="calendar-outline"
+                      size={22}
+                      color={theme.buttonPrimary}
+                    />
+                  </TouchableOpacity>
+                  {showRangeCalendar && (
+                    <View
+                      style={[
+                        styles.rangeCalendar,
+                        { borderColor: theme.border },
+                      ]}
+                    >
+                      <Calendar
+                        markingType="period"
+                        markedDates={rangeMarks}
+                        onDayPress={selectRangeDay}
+                        theme={{
+                          calendarBackground: 'transparent',
+                          dayTextColor: theme.text,
+                          monthTextColor: theme.text,
+                          textDisabledColor: theme.placeholder,
+                          arrowColor: theme.buttonPrimary,
+                          todayTextColor: theme.buttonPrimary,
+                        }}
+                      />
+                      <ThemedText style={styles.rangeHelp}>
+                        {form.fechaInicio && !form.fechaFin
+                          ? 'Ahora selecciona la fecha de fin'
+                          : 'Al tocar otra fecha se inicia un rango nuevo'}
+                      </ThemedText>
+                    </View>
+                  )}
+                  {(formErrors.fechaInicio || formErrors.fechaFin) && (
+                    <ThemedText
+                      style={[styles.errorText, { color: theme.error }]}
+                    >
+                      {formErrors.fechaInicio || formErrors.fechaFin}
+                    </ThemedText>
+                  )}
+                </View>
 
                 <ThemedText style={styles.sectionLabel}>Ubicación</ThemedText>
-                <FeriaLocationPicker
-                  value={
-                    Number.isFinite(form.latitud) &&
-                    Number.isFinite(form.longitud)
-                      ? ({
-                          latitud: form.latitud!,
-                          longitud: form.longitud!,
-                          ubicacionNombre: form.ubicacionNombre,
-                          ubicacionOrigen: form.ubicacionOrigen ?? 'MAPA',
-                        } satisfies FeriaLocationValue)
-                      : undefined
-                  }
-                  onChange={location => {
-                    setForm(current => ({ ...current, ...location }));
-                    setFormErrors(current => ({
-                      ...current,
-                      ubicacion: undefined,
-                    }));
-                  }}
-                />
+                <TouchableOpacity
+                  style={[
+                    styles.locationSummary,
+                    {
+                      backgroundColor: theme.inputBackground,
+                      borderColor: formErrors.ubicacion
+                        ? theme.error
+                        : theme.border,
+                    },
+                  ]}
+                  onPress={() => setShowLocationPage(true)}
+                >
+                  <Ionicons
+                    name="map-outline"
+                    size={24}
+                    color={theme.buttonPrimary}
+                  />
+                  <View style={{ flex: 1 }}>
+                    <ThemedText style={{ fontWeight: '700' }}>
+                      {form.ubicacionNombre || 'Elegir ubicación en el mapa'}
+                    </ThemedText>
+                    <ThemedText style={{ opacity: 0.6, fontSize: 12 }}>
+                      Busca por el nombre o mueve el marcador
+                    </ThemedText>
+                  </View>
+                  <Ionicons
+                    name="chevron-forward"
+                    size={21}
+                    color={theme.placeholder}
+                  />
+                </TouchableOpacity>
                 {formErrors.ubicacion && (
                   <ThemedText style={[styles.errorText, { color: theme.error }]}>
                     {formErrors.ubicacion}
@@ -846,6 +978,7 @@ const FeriasScreen: React.FC = () => {
                 </TouchableOpacity>
                 </View>
               </ScrollView>
+              )}
               </ThemedView>
             </Pressable>
           </KeyboardAvoidingView>

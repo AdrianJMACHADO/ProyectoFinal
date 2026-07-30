@@ -10,6 +10,7 @@ export type FeriaLocationValue = {
 declare const FeriaLocationPicker: ComponentType<{
   value?: FeriaLocationValue;
   onChange: (value: FeriaLocationValue) => void;
+  initialSearch?: string;
 }>;
 
 export default FeriaLocationPicker;

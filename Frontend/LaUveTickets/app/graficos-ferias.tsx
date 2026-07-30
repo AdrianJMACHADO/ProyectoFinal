@@ -77,13 +77,16 @@ export default function GraficosFeriasScreen() {
       ).sort((a, b) => Number(b) - Number(a)),
     [ferias],
   );
-  const availableYears = ['Todas las fechas', ...years];
+  const availableYears = useMemo(
+    () => ['Todas las fechas', ...years],
+    [years],
+  );
 
   useEffect(() => {
     if (selectedYear && availableYears.includes(selectedYear)) return;
     const current = String(new Date().getFullYear());
     setSelectedYear(years.includes(current) ? current : 'Todas las fechas');
-  }, [availableYears.join('|'), selectedYear]);
+  }, [availableYears, selectedYear, years]);
 
   const filteredFerias = useMemo(
     () =>

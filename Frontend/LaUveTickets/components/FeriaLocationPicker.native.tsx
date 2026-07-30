@@ -6,6 +6,7 @@ import {
   Alert,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -21,6 +22,7 @@ export type FeriaLocationValue = {
 type Props = {
   value?: FeriaLocationValue;
   onChange: (value: FeriaLocationValue) => void;
+  initialSearch?: string;
 };
 
 const SPAIN_REGION: Region = {
@@ -43,9 +45,15 @@ const describeLocation = async (latitude: number, longitude: number) => {
   }
 };
 
-export default function FeriaLocationPicker({ value, onChange }: Props) {
+export default function FeriaLocationPicker({
+  value,
+  onChange,
+  initialSearch = '',
+}: Props) {
   const mapRef = useRef<MapView>(null);
   const [locating, setLocating] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const [query, setQuery] = useState(initialSearch);
   const initialRegion = value
     ? {
         latitude: value.latitud,
@@ -111,6 +119,36 @@ export default function FeriaLocationPicker({ value, onChange }: Props) {
     }
   };
 
+  const searchByName = async () => {
+    if (!query.trim()) return;
+    setSearching(true);
+    try {
+      const results = await Location.geocodeAsync(`${query.trim()}, España`);
+      const match = results[0];
+      if (!match) {
+        Alert.alert(
+          'No encontramos esa ubicación',
+          'Prueba indicando también la ciudad o la provincia.',
+        );
+        return;
+      }
+      mapRef.current?.animateToRegion(
+        {
+          latitude: match.latitude,
+          longitude: match.longitude,
+          latitudeDelta: 0.08,
+          longitudeDelta: 0.08,
+        },
+        450,
+      );
+      await setCoordinates(match.latitude, match.longitude, 'MAPA');
+    } catch (error) {
+      Alert.alert('No se pudo buscar', (error as Error).message);
+    } finally {
+      setSearching(false);
+    }
+  };
+
   const handleMapPress = (event: MapPressEvent) => {
     const { latitude, longitude } = event.nativeEvent.coordinate;
     void setCoordinates(latitude, longitude, 'MAPA');
@@ -118,6 +156,28 @@ export default function FeriaLocationPicker({ value, onChange }: Props) {
 
   return (
     <View style={styles.container}>
+      <View style={styles.searchRow}>
+        <TextInput
+          value={query}
+          onChangeText={setQuery}
+          onSubmitEditing={searchByName}
+          placeholder="Nombre, ciudad o pueblo"
+          placeholderTextColor="#86868C"
+          returnKeyType="search"
+          style={styles.searchInput}
+        />
+        <TouchableOpacity
+          style={styles.searchButton}
+          onPress={searchByName}
+          disabled={searching}
+        >
+          {searching ? (
+            <ActivityIndicator color="white" />
+          ) : (
+            <Ionicons name="search" size={21} color="white" />
+          )}
+        </TouchableOpacity>
+      </View>
       <TouchableOpacity
         style={styles.locationButton}
         onPress={useDeviceLocation}
@@ -141,6 +201,8 @@ export default function FeriaLocationPicker({ value, onChange }: Props) {
         initialRegion={initialRegion}
         onPress={handleMapPress}
         showsUserLocation
+        showsCompass
+        toolbarEnabled
       >
         {value && (
           <Marker
@@ -166,7 +228,26 @@ export default function FeriaLocationPicker({ value, onChange }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { gap: 10 },
+  container: { flex: 1, gap: 10 },
+  searchRow: { flexDirection: 'row', gap: 8 },
+  searchInput: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    color: 'white',
+    backgroundColor: '#2A2A2E',
+    borderWidth: 1,
+    borderColor: '#4A4A50',
+  },
+  searchButton: {
+    width: 50,
+    minHeight: 48,
+    borderRadius: 12,
+    backgroundColor: '#168BFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   locationButton: {
     minHeight: 46,
     borderRadius: 12,
@@ -178,7 +259,7 @@ const styles = StyleSheet.create({
   },
   buttonText: { color: 'white', fontWeight: '700', fontSize: 15 },
   help: { color: '#9B9BA1', fontSize: 12, lineHeight: 17 },
-  map: { width: '100%', height: 220, borderRadius: 14 },
+  map: { width: '100%', flex: 1, minHeight: 390, borderRadius: 14 },
   selection: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   selectionText: { flex: 1, color: '#D8D8DC', fontSize: 13 },
 });

@@ -49,7 +49,25 @@ export function NavigationChromeProvider({
   const scrollAnchor = useRef<Record<string, number>>({});
   const registerHeader = useCallback(
     (tab: string, config: HeaderConfiguration) => {
-      setHeaders(current => ({ ...current, [tab]: config }));
+      setHeaders(current => {
+        const previous = current[tab];
+        const sameYears =
+          previous?.availableYears === config.availableYears ||
+          (
+            previous?.availableYears?.length === config.availableYears?.length &&
+            previous?.availableYears?.every(
+              (year, index) => year === config.availableYears?.[index],
+            )
+          );
+        if (
+          previous?.selectedYear === config.selectedYear &&
+          previous?.onYearChange === config.onYearChange &&
+          sameYears
+        ) {
+          return current;
+        }
+        return { ...current, [tab]: config };
+      });
     },
     [],
   );

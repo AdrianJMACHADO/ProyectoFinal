@@ -9,6 +9,7 @@ export default function FeriaLocationPicker({
 }: {
   value?: FeriaLocationValue;
   onChange: (value: FeriaLocationValue) => void;
+  initialSearch?: string;
 }) {
   return (
     <View style={styles.container}>

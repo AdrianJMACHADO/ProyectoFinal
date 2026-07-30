@@ -110,9 +110,6 @@ function RootLayoutNav() {
         fullScreenGestureEnabled: true,
       }}
     >
-      {!user ? (
-        // Rutas públicas
-        <>
         <Stack.Screen 
           name="login" 
           options={{
@@ -125,10 +122,7 @@ function RootLayoutNav() {
           name="registro-admin"
           options={{ headerShown: false, gestureEnabled: true }}
         />
-        </>
-      ) : (
-        // Rutas protegidas
-        <>
+      
           <Stack.Screen name="tickets" />
           <Stack.Screen
             name="empleado"
@@ -165,8 +159,6 @@ function RootLayoutNav() {
               fullScreenGestureEnabled: true,
             }}
           />
-        </>
-      )}
     </Stack>
   );
 }
