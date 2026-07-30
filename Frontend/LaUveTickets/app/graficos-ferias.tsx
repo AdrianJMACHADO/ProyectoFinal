@@ -6,7 +6,9 @@ import { Ionicons } from '@expo/vector-icons';
 import {
   differenceInCalendarDays,
   eachDayOfInterval,
+  endOfMonth,
   format,
+  startOfMonth,
 } from 'date-fns';
 import { es } from 'date-fns/locale';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -33,6 +35,17 @@ import { buildFeriaRoute, getFeriaStart } from '../services/feriaTravel';
 
 const FUEL_SETTINGS_KEY = 'lauve.fuelCalculator';
 const ROAD_ESTIMATE_FACTOR = 1.18;
+const OVERLAP_COLOR = '#FF3B30';
+const FAIR_COLORS = [
+  '#168BFF',
+  '#30D158',
+  '#BF5AF2',
+  '#FF9F0A',
+  '#64D2FF',
+  '#FF2D55',
+  '#5E5CE6',
+  '#A2845E',
+];
 
 export default function GraficosFeriasScreen() {
   const theme = useTheme();
@@ -44,6 +57,9 @@ export default function GraficosFeriasScreen() {
   const [selectedYear, setSelectedYear] = useState<string | null>(null);
   const [litresPer100, setLitresPer100] = useState('28');
   const [pricePerLitre, setPricePerLitre] = useState('1.55');
+  const [visibleMonth, setVisibleMonth] = useState(
+    format(new Date(), 'yyyy-MM'),
+  );
 
   useEffect(() => {
     void AsyncStorage.getItem(FUEL_SETTINGS_KEY).then(value => {
@@ -98,6 +114,18 @@ export default function GraficosFeriasScreen() {
     [ferias, selectedYear],
   );
   const route = useMemo(() => buildFeriaRoute(filteredFerias), [filteredFerias]);
+  const feriaColors = useMemo(
+    () =>
+      Object.fromEntries(
+        [...filteredFerias]
+          .sort((a, b) => String(a.idFeria).localeCompare(String(b.idFeria)))
+          .map((feria, index) => [
+            String(feria.idFeria),
+            FAIR_COLORS[index % FAIR_COLORS.length],
+          ]),
+      ) as Record<string, string>,
+    [filteredFerias],
+  );
   const calendarMarks = useMemo(
     () =>
       filteredFerias.reduce<
@@ -128,20 +156,37 @@ export default function GraficosFeriasScreen() {
             ...(marks[key]?.dots ?? []),
             {
               key: String(feria.idFeria),
-              color: theme.buttonPrimary,
+              color: feriaColors[String(feria.idFeria)],
             },
           ];
           marks[key] = {
             selected: true,
             selectedColor:
-              dots.length > 1 ? '#FF9500' : `${theme.buttonPrimary}66`,
+              dots.length > 1
+                ? OVERLAP_COLOR
+                : feriaColors[String(feria.idFeria)],
             dots,
           };
         });
         return marks;
       }, {}),
-    [filteredFerias, theme.buttonPrimary],
+    [feriaColors, filteredFerias],
   );
+  const visibleMonthFerias = useMemo(() => {
+    const monthStart = startOfMonth(new Date(`${visibleMonth}-01T12:00:00`));
+    const monthEnd = endOfMonth(monthStart);
+    return filteredFerias
+      .filter(feria => {
+        const start = getFeriaStart(feria);
+        const end = new Date(
+          feria.fechaFin ?? feria.fechaInicio ?? feria.fecha,
+        );
+        return start <= monthEnd && end >= monthStart;
+      })
+      .sort(
+        (a, b) => getFeriaStart(a).getTime() - getFeriaStart(b).getTime(),
+      );
+  }, [filteredFerias, visibleMonth]);
   const estimatedRoadKm = route.totalDirectKm * ROAD_ESTIMATE_FACTOR;
   const consumption = Number(litresPer100.replace(',', '.')) || 0;
   const fuelPrice = Number(pricePerLitre.replace(',', '.')) || 0;
@@ -240,6 +285,13 @@ export default function GraficosFeriasScreen() {
             <Calendar
               markedDates={calendarMarks}
               markingType="multi-dot"
+              onMonthChange={month =>
+                setVisibleMonth(current =>
+                  current === month.dateString.slice(0, 7)
+                    ? current
+                    : month.dateString.slice(0, 7),
+                )
+              }
               theme={{
                 calendarBackground: 'transparent',
                 dayTextColor: theme.text,
@@ -250,21 +302,50 @@ export default function GraficosFeriasScreen() {
               }}
             />
             <View style={styles.calendarLegend}>
+              {visibleMonthFerias.map(feria => (
+                <View style={styles.legendItem} key={feria.idFeria}>
+                  <View
+                    style={[
+                      styles.legendDot,
+                      {
+                        backgroundColor:
+                          feriaColors[String(feria.idFeria)],
+                      },
+                    ]}
+                  />
+                  <View style={{ flex: 1 }}>
+                    <ThemedText style={styles.legendName}>
+                      {feria.nombre}
+                    </ThemedText>
+                    <ThemedText style={styles.legendDates}>
+                      {format(getFeriaStart(feria), 'dd/MM')}
+                      {' – '}
+                      {format(
+                        new Date(
+                          feria.fechaFin ?? feria.fechaInicio ?? feria.fecha,
+                        ),
+                        'dd/MM',
+                      )}
+                    </ThemedText>
+                  </View>
+                </View>
+              ))}
               <View style={styles.legendItem}>
                 <View
                   style={[
                     styles.legendDot,
-                    { backgroundColor: theme.buttonPrimary },
+                    { backgroundColor: OVERLAP_COLOR },
                   ]}
                 />
-                <ThemedText>Feria</ThemedText>
+                <ThemedText style={styles.legendName}>
+                  Coincidencia de fechas
+                </ThemedText>
               </View>
-              <View style={styles.legendItem}>
-                <View
-                  style={[styles.legendDot, { backgroundColor: '#FF9500' }]}
-                />
-                <ThemedText>Coincidencia</ThemedText>
-              </View>
+              {!visibleMonthFerias.length && (
+                <ThemedText style={styles.emptyMonth}>
+                  No hay ferias durante este mes.
+                </ThemedText>
+              )}
             </View>
           </ThemedView>
 
@@ -470,11 +551,12 @@ const styles = StyleSheet.create({
   retry: { borderRadius: 10, paddingHorizontal: 20, paddingVertical: 12 },
   whiteText: { color: 'white', fontWeight: '700' },
   calendarLegend: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 18,
+    gap: 9,
     paddingTop: 10,
   },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   legendDot: { width: 10, height: 10, borderRadius: 5 },
+  legendName: { fontWeight: '700' },
+  legendDates: { opacity: 0.58, fontSize: 12 },
+  emptyMonth: { textAlign: 'center', opacity: 0.6, paddingVertical: 4 },
 });
