@@ -324,7 +324,8 @@ export default function AjustesScreen({ embedded = false }: AjustesScreenProps) 
       gap: 10,
       paddingHorizontal: 18,
       paddingTop: 10,
-      paddingBottom: Math.max(insets.bottom, 12),
+      paddingBottom:
+        Math.max(insets.bottom, 12) + (embedded ? 86 : 0),
       borderTopWidth: StyleSheet.hairlineWidth,
       borderTopColor: theme.border,
       backgroundColor: theme.background,

@@ -3,9 +3,14 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { useTheme } from '@/hooks/useThemeColor';
 import { Ionicons } from '@expo/vector-icons';
-import { format } from 'date-fns';
+import {
+  differenceInCalendarDays,
+  eachDayOfInterval,
+  format,
+} from 'date-fns';
 import { es } from 'date-fns/locale';
 import React, { useEffect, useMemo, useState } from 'react';
+import { Calendar } from 'react-native-calendars';
 import {
   ActivityIndicator,
   ScrollView,
@@ -90,6 +95,50 @@ export default function GraficosFeriasScreen() {
     [ferias, selectedYear],
   );
   const route = useMemo(() => buildFeriaRoute(filteredFerias), [filteredFerias]);
+  const calendarMarks = useMemo(
+    () =>
+      filteredFerias.reduce<
+        Record<
+          string,
+          {
+            selected: boolean;
+            selectedColor: string;
+            dots: { key: string; color: string }[];
+          }
+        >
+      >((marks, feria) => {
+        const start = getFeriaStart(feria);
+        const end = new Date(
+          feria.fechaFin ?? feria.fechaInicio ?? feria.fecha,
+        );
+        if (
+          Number.isNaN(start.getTime()) ||
+          Number.isNaN(end.getTime()) ||
+          end < start ||
+          differenceInCalendarDays(end, start) > 730
+        ) {
+          return marks;
+        }
+        eachDayOfInterval({ start, end }).forEach(day => {
+          const key = format(day, 'yyyy-MM-dd');
+          const dots = [
+            ...(marks[key]?.dots ?? []),
+            {
+              key: String(feria.idFeria),
+              color: theme.buttonPrimary,
+            },
+          ];
+          marks[key] = {
+            selected: true,
+            selectedColor:
+              dots.length > 1 ? '#FF9500' : `${theme.buttonPrimary}66`,
+            dots,
+          };
+        });
+        return marks;
+      }, {}),
+    [filteredFerias, theme.buttonPrimary],
+  );
   const estimatedRoadKm = route.totalDirectKm * ROAD_ESTIMATE_FACTOR;
   const consumption = Number(litresPer100.replace(',', '.')) || 0;
   const fuelPrice = Number(pricePerLitre.replace(',', '.')) || 0;
@@ -170,6 +219,51 @@ export default function GraficosFeriasScreen() {
           <ThemedText type="title" style={styles.title}>
             Recorrido de Ferias
           </ThemedText>
+
+          <ThemedView type="card" style={styles.card}>
+            <View style={styles.cardHeading}>
+              <Ionicons
+                name="calendar"
+                size={24}
+                color={theme.buttonPrimary}
+              />
+              <View style={styles.headingText}>
+                <ThemedText type="subtitle">Calendario de ferias</ThemedText>
+                <ThemedText style={styles.muted}>
+                  Los días naranjas contienen ferias coincidentes.
+                </ThemedText>
+              </View>
+            </View>
+            <Calendar
+              markedDates={calendarMarks}
+              markingType="multi-dot"
+              theme={{
+                calendarBackground: 'transparent',
+                dayTextColor: theme.text,
+                monthTextColor: theme.text,
+                textDisabledColor: theme.placeholder,
+                arrowColor: theme.buttonPrimary,
+                todayTextColor: theme.buttonPrimary,
+              }}
+            />
+            <View style={styles.calendarLegend}>
+              <View style={styles.legendItem}>
+                <View
+                  style={[
+                    styles.legendDot,
+                    { backgroundColor: theme.buttonPrimary },
+                  ]}
+                />
+                <ThemedText>Feria</ThemedText>
+              </View>
+              <View style={styles.legendItem}>
+                <View
+                  style={[styles.legendDot, { backgroundColor: '#FF9500' }]}
+                />
+                <ThemedText>Coincidencia</ThemedText>
+              </View>
+            </View>
+          </ThemedView>
 
           <ThemedView type="card" style={styles.card}>
             <View style={styles.cardHeading}>
@@ -372,4 +466,12 @@ const styles = StyleSheet.create({
   errorText: { textAlign: 'center', marginVertical: 16 },
   retry: { borderRadius: 10, paddingHorizontal: 20, paddingVertical: 12 },
   whiteText: { color: 'white', fontWeight: '700' },
+  calendarLegend: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 18,
+    paddingTop: 10,
+  },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  legendDot: { width: 10, height: 10, borderRadius: 5 },
 });

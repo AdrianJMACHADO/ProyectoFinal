@@ -3,9 +3,8 @@ import { ThemedView } from '@/components/ThemedView';
 import { useTheme } from '@/hooks/useThemeColor';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { eachDayOfInterval, format } from 'date-fns';
+import { format } from 'date-fns';
 import { useRouter } from 'expo-router';
-import { Calendar, DateData } from 'react-native-calendars';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import FeriaLocationPicker, {
@@ -350,27 +349,6 @@ const FeriasScreen: React.FC = () => {
     return matchesSearch && matchesYear;
   });
 
-  const calendarMarks = filteredFerias.reduce<
-    Record<string, { selected: boolean; selectedColor: string; dots: { key: string; color: string }[] }>
-  >((marks, feria) => {
-    const start = new Date(feria.fechaInicio ?? feria.fecha);
-    const end = new Date(feria.fechaFin ?? feria.fechaInicio ?? feria.fecha);
-    eachDayOfInterval({ start, end }).forEach(day => {
-      const key = format(day, 'yyyy-MM-dd');
-      const previous = marks[key];
-      const dots = [
-        ...(previous?.dots ?? []),
-        { key: String(feria.idFeria), color: theme.buttonPrimary },
-      ];
-      marks[key] = {
-        selected: true,
-        selectedColor: dots.length > 1 ? '#FF9500' : `${theme.buttonPrimary}66`,
-        dots,
-      };
-    });
-    return marks;
-  }, {});
-
   const styles = StyleSheet.create({
     container: {
       flex: 1,
@@ -456,21 +434,6 @@ const FeriasScreen: React.FC = () => {
       fontSize: 13,
       opacity: 0.8,
     },
-    calendarCard: {
-      marginHorizontal: 16,
-      marginBottom: 4,
-      borderRadius: 16,
-      padding: 10,
-      overflow: 'hidden',
-    },
-    calendarLegend: {
-      flexDirection: 'row',
-      justifyContent: 'center',
-      gap: 18,
-      paddingVertical: 8,
-    },
-    legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    legendDot: { width: 10, height: 10, borderRadius: 5 },
     feriaEstado: {
       marginTop: 6,
       fontSize: 12,
@@ -654,42 +617,6 @@ const FeriasScreen: React.FC = () => {
             </TouchableOpacity>
           )}
         </View>
-
-        <ThemedView type="card" style={styles.calendarCard}>
-          <Calendar
-            markedDates={calendarMarks}
-            markingType="multi-dot"
-            onDayPress={(day: DateData) => {
-              const dayDate = new Date(`${day.dateString}T12:00:00`);
-              setSelectedYear(String(dayDate.getFullYear()));
-            }}
-            theme={{
-              calendarBackground: 'transparent',
-              dayTextColor: theme.text,
-              monthTextColor: theme.text,
-              textDisabledColor: theme.placeholder,
-              arrowColor: theme.buttonPrimary,
-              todayTextColor: theme.buttonPrimary,
-            }}
-          />
-          <View style={styles.calendarLegend}>
-            <View style={styles.legendItem}>
-              <View
-                style={[
-                  styles.legendDot,
-                  { backgroundColor: theme.buttonPrimary },
-                ]}
-              />
-              <ThemedText>Feria</ThemedText>
-            </View>
-            <View style={styles.legendItem}>
-              <View
-                style={[styles.legendDot, { backgroundColor: '#FF9500' }]}
-              />
-              <ThemedText>Coinciden</ThemedText>
-            </View>
-          </View>
-        </ThemedView>
 
         {loading ? (
           <View style={styles.loadingContainer}>
