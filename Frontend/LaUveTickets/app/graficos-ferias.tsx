@@ -46,6 +46,7 @@ const FAIR_COLORS = [
   '#5E5CE6',
   '#A2845E',
 ];
+type FeriaStatusFilter = 'TODAS' | 'ACTIVAS' | 'INACTIVAS';
 
 export default function GraficosFeriasScreen() {
   const theme = useTheme();
@@ -60,6 +61,8 @@ export default function GraficosFeriasScreen() {
   const [visibleMonth, setVisibleMonth] = useState(
     format(new Date(), 'yyyy-MM'),
   );
+  const [statusFilter, setStatusFilter] =
+    useState<FeriaStatusFilter>('TODAS');
 
   useEffect(() => {
     void AsyncStorage.getItem(FUEL_SETTINGS_KEY).then(value => {
@@ -113,22 +116,35 @@ export default function GraficosFeriasScreen() {
           ),
     [ferias, selectedYear],
   );
-  const route = useMemo(() => buildFeriaRoute(filteredFerias), [filteredFerias]);
+  const analyticsFerias = useMemo(
+    () =>
+      filteredFerias.filter(feria => {
+        const active = (feria.estado ?? 'ACTIVO') === 'ACTIVO';
+        if (statusFilter === 'ACTIVAS') return active;
+        if (statusFilter === 'INACTIVAS') return !active;
+        return true;
+      }),
+    [filteredFerias, statusFilter],
+  );
+  const route = useMemo(
+    () => buildFeriaRoute(analyticsFerias),
+    [analyticsFerias],
+  );
   const feriaColors = useMemo(
     () =>
       Object.fromEntries(
-        [...filteredFerias]
+        [...analyticsFerias]
           .sort((a, b) => String(a.idFeria).localeCompare(String(b.idFeria)))
           .map((feria, index) => [
             String(feria.idFeria),
             FAIR_COLORS[index % FAIR_COLORS.length],
           ]),
       ) as Record<string, string>,
-    [filteredFerias],
+    [analyticsFerias],
   );
   const calendarMarks = useMemo(
     () =>
-      filteredFerias.reduce<
+      analyticsFerias.reduce<
         Record<
           string,
           {
@@ -170,12 +186,12 @@ export default function GraficosFeriasScreen() {
         });
         return marks;
       }, {}),
-    [feriaColors, filteredFerias],
+    [analyticsFerias, feriaColors],
   );
   const visibleMonthFerias = useMemo(() => {
     const monthStart = startOfMonth(new Date(`${visibleMonth}-01T12:00:00`));
     const monthEnd = endOfMonth(monthStart);
-    return filteredFerias
+    return analyticsFerias
       .filter(feria => {
         const start = getFeriaStart(feria);
         const end = new Date(
@@ -186,14 +202,14 @@ export default function GraficosFeriasScreen() {
       .sort(
         (a, b) => getFeriaStart(a).getTime() - getFeriaStart(b).getTime(),
       );
-  }, [filteredFerias, visibleMonth]);
+  }, [analyticsFerias, visibleMonth]);
   const estimatedRoadKm = route.totalDirectKm * ROAD_ESTIMATE_FACTOR;
   const consumption = Number(litresPer100.replace(',', '.')) || 0;
   const fuelPrice = Number(pricePerLitre.replace(',', '.')) || 0;
   const estimatedLitres = (estimatedRoadKm * consumption) / 100;
   const estimatedCost = estimatedLitres * fuelPrice;
 
-  const feriasPorMes = filteredFerias.reduce<Record<string, number>>(
+  const feriasPorMes = analyticsFerias.reduce<Record<string, number>>(
     (accumulator, feria) => {
       const month = format(getFeriaStart(feria), 'MMMM', { locale: es });
       accumulator[month] = (accumulator[month] ?? 0) + 1;
@@ -268,6 +284,52 @@ export default function GraficosFeriasScreen() {
             Recorrido de Ferias
           </ThemedText>
 
+          <View
+            style={[
+              styles.statusFilter,
+              { borderColor: theme.border, backgroundColor: theme.card },
+            ]}
+          >
+            {(
+              [
+                ['TODAS', 'Todas'],
+                ['ACTIVAS', 'Activas'],
+                ['INACTIVAS', 'Inactivas'],
+              ] as const
+            ).map(([value, label]) => {
+              const selected = statusFilter === value;
+              return (
+                <TouchableOpacity
+                  key={value}
+                  style={[
+                    styles.statusOption,
+                    selected && {
+                      backgroundColor:
+                        value === 'INACTIVAS'
+                          ? `${theme.error}28`
+                          : `${theme.buttonPrimary}28`,
+                    },
+                  ]}
+                  onPress={() => setStatusFilter(value)}
+                >
+                  <ThemedText
+                    style={[
+                      styles.statusOptionText,
+                      selected && {
+                        color:
+                          value === 'INACTIVAS'
+                            ? theme.error
+                            : theme.buttonPrimary,
+                      },
+                    ]}
+                  >
+                    {label}
+                  </ThemedText>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
           <ThemedView type="card" style={styles.card}>
             <View style={styles.cardHeading}>
               <Ionicons
@@ -326,6 +388,10 @@ export default function GraficosFeriasScreen() {
                         ),
                         'dd/MM',
                       )}
+                      {' · '}
+                      {(feria.estado ?? 'ACTIVO') === 'ACTIVO'
+                        ? 'Activa'
+                        : 'Inactiva'}
                     </ThemedText>
                   </View>
                 </View>
@@ -521,6 +587,20 @@ const styles = StyleSheet.create({
   scrollContent: { alignItems: 'center', paddingBottom: 130 },
   content: { paddingHorizontal: 16, paddingTop: 20, gap: 16 },
   title: { textAlign: 'center', color: '#168BFF', marginBottom: 2 },
+  statusFilter: {
+    flexDirection: 'row',
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 4,
+  },
+  statusOption: {
+    flex: 1,
+    minHeight: 42,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statusOptionText: { fontWeight: '800', fontSize: 13 },
   card: { borderRadius: 18, padding: 16, overflow: 'hidden' },
   cardHeading: { flexDirection: 'row', gap: 11, alignItems: 'center', marginBottom: 14 },
   headingText: { flex: 1 },
