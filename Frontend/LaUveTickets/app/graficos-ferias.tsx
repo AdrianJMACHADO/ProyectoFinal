@@ -62,7 +62,7 @@ export default function GraficosFeriasScreen() {
     format(new Date(), 'yyyy-MM'),
   );
   const [statusFilter, setStatusFilter] =
-    useState<FeriaStatusFilter>('TODAS');
+    useState<FeriaStatusFilter>('ACTIVAS');
 
   useEffect(() => {
     void AsyncStorage.getItem(FUEL_SETTINGS_KEY).then(value => {
