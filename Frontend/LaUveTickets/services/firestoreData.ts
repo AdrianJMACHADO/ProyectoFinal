@@ -3,6 +3,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  getDocsFromServer,
   onSnapshot,
   orderBy,
   query,
@@ -93,6 +94,8 @@ type NewTicket = Omit<TicketRecord, 'idTicket' | 'fecha_creacion' | 'qrToken'>;
 const FERIAS = 'ferias';
 const TICKETS = 'tickets';
 const COUNTERS = 'counters';
+const feriaSubscribers = new Set<(ferias: FeriaRecord[]) => void>();
+const ticketSubscribers = new Set<(tickets: TicketRecord[]) => void>();
 
 const generateQrToken = () =>
   `${Crypto.randomUUID()}${Crypto.randomUUID()}`.replace(/-/g, '').toLowerCase();
@@ -119,12 +122,17 @@ export const subscribeFerias = (
   onData: (ferias: FeriaRecord[]) => void,
   onError?: (error: Error) => void,
 ) => {
+  feriaSubscribers.add(onData);
   const db = getFirebaseDb();
-  return onSnapshot(
+  const unsubscribe = onSnapshot(
     query(collection(db, FERIAS), orderBy('fecha', 'desc')),
     snapshot => onData(snapshot.docs.map(item => normalizeFeria(item.data()))),
     error => onError?.(error),
   );
+  return () => {
+    feriaSubscribers.delete(onData);
+    unsubscribe();
+  };
 };
 
 export const createFeria = async (data: NewFeria): Promise<FeriaRecord> => {
@@ -206,8 +214,9 @@ export const subscribeTickets = (
   onData: (tickets: TicketRecord[]) => void,
   onError?: (error: Error) => void,
 ) => {
+  ticketSubscribers.add(onData);
   const db = getFirebaseDb();
-  return onSnapshot(
+  const unsubscribe = onSnapshot(
     query(collection(db, TICKETS), orderBy('fecha_creacion', 'desc')),
     snapshot => {
       const tickets = snapshot.docs.map(item => normalizeTicket(item.data()));
@@ -221,6 +230,49 @@ export const subscribeTickets = (
     },
     error => onError?.(error),
   );
+  return () => {
+    ticketSubscribers.delete(onData);
+    unsubscribe();
+  };
+};
+
+export const refreshFirestoreData = async (): Promise<void> => {
+  const db = getFirebaseDb();
+  const results = await Promise.allSettled([
+    getDocsFromServer(
+      query(collection(db, FERIAS), orderBy('fecha', 'desc')),
+    ),
+    getDocsFromServer(
+      query(collection(db, TICKETS), orderBy('fecha_creacion', 'desc')),
+    ),
+  ]);
+
+  let refreshedCollections = 0;
+  const feriasResult = results[0];
+  if (feriasResult.status === 'fulfilled') {
+    const ferias = feriasResult.value.docs.map(item =>
+      normalizeFeria(item.data()),
+    );
+    feriaSubscribers.forEach(subscriber => subscriber(ferias));
+    refreshedCollections += 1;
+  }
+
+  const ticketsResult = results[1];
+  if (ticketsResult.status === 'fulfilled') {
+    const tickets = ticketsResult.value.docs.map(item =>
+      normalizeTicket(item.data()),
+    );
+    ticketSubscribers.forEach(subscriber => subscriber(tickets));
+    refreshedCollections += 1;
+  }
+
+  if (refreshedCollections === 0) {
+    const firstError = results.find(
+      (result): result is PromiseRejectedResult =>
+        result.status === 'rejected',
+    );
+    throw firstError?.reason ?? new Error('No se pudieron actualizar los datos');
+  }
 };
 
 export const getTicket = async (idTicket: number): Promise<TicketRecord | null> => {

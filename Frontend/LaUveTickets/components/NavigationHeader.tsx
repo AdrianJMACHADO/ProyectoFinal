@@ -4,6 +4,8 @@ import { usePathname, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
+  ActivityIndicator,
+  Alert,
   Dimensions,
   Modal,
   ScrollView,
@@ -12,6 +14,7 @@ import {
   View
 } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
+import { refreshFirestoreData } from '../services/firestoreData';
 import { ThemedText } from './ThemedText';
 import { ThemedView } from './ThemedView';
 
@@ -31,6 +34,7 @@ export function NavigationHeader({
   const { logout, role } = useAuth();
   const isEmployee = role === 'EMPLEADO';
   const [showYearModal, setShowYearModal] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const screenWidth = Dimensions.get('window').width;
   const isSmallScreen = screenWidth < 600;
   const theme = useTheme();
@@ -44,6 +48,21 @@ export function NavigationHeader({
   const handleYearSelect = (year: string | null) => {
     onYearChange?.(year);
     setShowYearModal(false);
+  };
+
+  const handleRefresh = async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      await refreshFirestoreData();
+    } catch (error) {
+      Alert.alert(
+        'No se pudo actualizar',
+        (error as Error).message || 'Comprueba tu conexión e inténtalo de nuevo.',
+      );
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const YearSelector = () => (
@@ -124,6 +143,13 @@ export function NavigationHeader({
     brandTitle: {
       fontWeight: '800',
       color: theme.buttonPrimary,
+    },
+    brandButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      paddingVertical: 6,
+      paddingRight: 8,
     },
     backButton: {
       padding: 7,
@@ -229,9 +255,20 @@ export function NavigationHeader({
             <Ionicons name="chevron-back" size={22} color={theme.buttonPrimary} />
           </TouchableOpacity>
         )}
-        <ThemedText type="subtitle" style={styles.brandTitle}>
-          LaUveTickets
-        </ThemedText>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Actualizar todos los datos"
+          disabled={refreshing}
+          onPress={handleRefresh}
+          style={styles.brandButton}
+        >
+          <ThemedText type="subtitle" style={styles.brandTitle}>
+            LaUveTickets
+          </ThemedText>
+          {refreshing && (
+            <ActivityIndicator size="small" color={theme.buttonPrimary} />
+          )}
+        </TouchableOpacity>
       </View>
 
       <View style={styles.rightSection}>
