@@ -365,16 +365,19 @@ const FeriasScreen: React.FC = () => {
         </View>
         <View style={styles.feriaActions}>
           <TouchableOpacity
-            style={[styles.stateButton, { backgroundColor: isActive ? theme.error : theme.success }]}
+            style={[
+              styles.stateButton,
+              { backgroundColor: isActive ? theme.success : theme.error },
+            ]}
             onPress={() => toggleFeriaEstado(item)}
           >
             <Ionicons
-              name={isActive ? 'pause-circle-outline' : 'play-circle-outline'}
+              name={isActive ? 'checkmark-circle' : 'close-circle'}
               size={19}
               color="white"
             />
             <ThemedText type="button" style={styles.editButtonText}>
-              {isActive ? 'Inactivar' : 'Activar'}
+              {isActive ? 'ACTIVA' : 'INACTIVA'}
             </ThemedText>
           </TouchableOpacity>
           <TouchableOpacity
@@ -750,7 +753,7 @@ const FeriasScreen: React.FC = () => {
       >
         <Pressable
           style={[styles.modalOverlay, { backgroundColor: 'rgba(0, 0, 0, 0.62)' }]}
-          onPress={closeModal}
+          onPress={Platform.OS === 'web' ? closeModal : undefined}
         >
           <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}

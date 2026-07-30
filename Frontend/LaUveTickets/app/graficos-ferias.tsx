@@ -307,7 +307,9 @@ export default function GraficosFeriasScreen() {
                       backgroundColor:
                         value === 'INACTIVAS'
                           ? `${theme.error}28`
-                          : `${theme.buttonPrimary}28`,
+                          : value === 'ACTIVAS'
+                            ? `${theme.success}28`
+                            : `${theme.buttonPrimary}28`,
                     },
                   ]}
                   onPress={() => setStatusFilter(value)}
@@ -319,7 +321,9 @@ export default function GraficosFeriasScreen() {
                         color:
                           value === 'INACTIVAS'
                             ? theme.error
-                            : theme.buttonPrimary,
+                            : value === 'ACTIVAS'
+                              ? theme.success
+                              : theme.buttonPrimary,
                       },
                     ]}
                   >
