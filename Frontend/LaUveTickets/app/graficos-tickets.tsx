@@ -3,8 +3,7 @@ import { ThemedView } from '@/components/ThemedView';
 import { useTheme } from '@/hooks/useThemeColor';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
-import { PieChart } from 'react-native-chart-kit';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { ProgressBar } from 'react-native-paper';
 import { NavigationHeaderRegistration } from '../components/NavigationHeaderRegistration';
 import { useNavigationChrome } from '../contexts/NavigationChromeContext';
@@ -16,6 +15,32 @@ import {
 } from '../services/firestoreData';
 import { Feria, Ticket } from './tickets';
 
+const toValidDate = (value: unknown): Date | null => {
+  try {
+    if (value == null) return null;
+    const raw =
+      typeof (value as { toDate?: unknown }).toDate === 'function'
+        ? (value as { toDate: () => Date }).toDate()
+        : value;
+    const date = raw instanceof Date ? raw : new Date(raw as any);
+    return Number.isNaN(date.getTime()) ? null : date;
+  } catch {
+    return null;
+  }
+};
+
+const getFeriaYear = (feria: Feria): string | null =>
+  toValidDate((feria as Feria & { fecha?: unknown }).fecha)?.getFullYear().toString() ?? null;
+
+const toNonNegativeNumber = (value: unknown): number => {
+  const normalized = typeof value === 'string' ? value.replace(',', '.') : value;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+};
+
+const clamp01 = (value: number): number =>
+  Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0;
+
 export default function GraficosTicketsScreen() {
   const { reportScroll } = useNavigationChrome();
   const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -25,10 +50,8 @@ export default function GraficosTicketsScreen() {
   const [availableYears, setAvailableYears] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  // Hook para obtener las áreas seguras y dimensiones
-  const screenWidth = Dimensions.get('window').width;
-  const isWeb = Platform.OS === 'web';
-  const isLargeScreen = screenWidth > 768; // Detectar pantallas grandes
+  const { width: screenWidth } = useWindowDimensions();
+  const isLargeScreen = screenWidth > 768;
   const theme = useTheme();
 
   useEffect(() => {
@@ -54,11 +77,7 @@ export default function GraficosTicketsScreen() {
     const unsubscribeFerias = subscribeFerias(data => {
       setFerias(data);
       const years = Array.from(
-        new Set(
-          data.map(feria =>
-            new Date(feria.fecha).getFullYear().toString(),
-          ),
-        ),
+        new Set(data.map(getFeriaYear).filter((year): year is string => Boolean(year))),
       ).sort((a, b) => Number(b) - Number(a));
       const yearOptions = ['Todas las fechas', ...years];
       setAvailableYears(yearOptions);
@@ -90,8 +109,13 @@ export default function GraficosTicketsScreen() {
       ]);
       setTickets(ticketsData);
       setFerias(feriasData);
-      const years: string[] = Array.from(new Set(feriasData.map((feria: Feria) => new Date(feria.fecha).getFullYear().toString())));
-      years.sort((a, b) => parseInt(b) - parseInt(a));
+      const years = Array.from(
+        new Set(
+          feriasData
+            .map((feria: Feria) => getFeriaYear(feria))
+            .filter((year): year is string => Boolean(year)),
+        ),
+      ).sort((a, b) => Number(b) - Number(a));
       setAvailableYears(['Todas las fechas', ...years]);
       const currentYear = String(new Date().getFullYear());
       setSelectedYear(current =>
@@ -306,6 +330,42 @@ export default function GraficosTicketsScreen() {
       fontSize: 16,
       fontWeight: 'bold',
     },
+    distributionTrack: {
+      height: 28,
+      borderRadius: 14,
+      overflow: 'hidden',
+      flexDirection: 'row',
+      marginTop: 8,
+    },
+    distributionSegment: {
+      height: '100%',
+      minWidth: 2,
+    },
+    distributionLegend: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      gap: 12,
+      marginTop: 16,
+    },
+    distributionLegendItem: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    distributionValue: {
+      fontSize: 16,
+      fontWeight: '800',
+    },
+    distributionLabel: {
+      fontSize: 12,
+      opacity: 0.65,
+      marginTop: 2,
+    },
+    emptyText: {
+      textAlign: 'center',
+      opacity: 0.7,
+      paddingVertical: 24,
+    },
   });
 
   if (loading) {
@@ -345,48 +405,63 @@ export default function GraficosTicketsScreen() {
     );
   }
 
-  const filteredFerias = selectedYear === 'Todas las fechas'
-    ? ferias
-    : selectedYear
-      ? ferias.filter(feria => new Date(feria.fecha).getFullYear().toString() === selectedYear)
-      : ferias;
+  const filteredFerias =
+    selectedYear === 'Todas las fechas'
+      ? ferias
+      : selectedYear
+        ? ferias.filter(feria => getFeriaYear(feria) === selectedYear)
+        : ferias;
 
-  const filteredTickets = selectedYear === 'Todas las fechas'
-    ? tickets
-    : selectedYear
-      ? tickets.filter(ticket => {
-        const feria = ferias.find(f => f.idFeria === ticket.idFeria);
-        return feria && new Date(feria.fecha).getFullYear().toString() === selectedYear;
-      })
-      : tickets;
-
-  // Los agotados siguen contando mientras estén activos. Los inactivos se
-  // consideran dados de baja administrativamente y no aparecen en gráficas.
-  const ticketsContabilizados = filteredTickets.filter(
-    ticket => ticket.estado === 'ACTIVO',
+  const feriaById = new Map<string, Feria>(
+    filteredFerias.map(feria => [String(feria.idFeria), feria] as [string, Feria]),
   );
-  const feriaMapFiltered = Object.fromEntries(filteredFerias.map(f => [String(f.idFeria), f.nombre]));
-  const feriasUnicasFiltered = Array.from(new Set(ticketsContabilizados.map(t => t.idFeria)));
-  const feriaLabelsFiltered = feriasUnicasFiltered.map(f => feriaMapFiltered[String(f)] || 'Sin Feria');
-  const ticketsPorFeriaFiltered = feriasUnicasFiltered.map(f => ticketsContabilizados.filter(t => t.idFeria === f));
-  const generadosPorFeriaFiltered = ticketsPorFeriaFiltered.map(arr => arr.reduce((sum, t) => sum + (t.cantidad_inicial || 0), 0));
-  const usadosPorFeriaFiltered = ticketsPorFeriaFiltered.map(arr => arr.reduce((sum, t) => sum + Math.min(t.usos || 0, t.cantidad_inicial || 0), 0));
-  const noUsadosPorFeriaFiltered = generadosPorFeriaFiltered.map((gen, i) => Math.max(gen - usadosPorFeriaFiltered[i], 0));
-  const incoherenciasFiltered = usadosPorFeriaFiltered.map((usados, i) => usados > generadosPorFeriaFiltered[i]);
-  const porcentajeUsoPorFeriaFiltered = generadosPorFeriaFiltered.map((gen, i) => gen > 0 ? Math.round((usadosPorFeriaFiltered[i] / gen) * 100) : 0);
 
-  const chartConfig = {
-    backgroundGradientFrom: theme.background,
-    backgroundGradientTo: theme.background,
-    color: (opacity = 1) => `rgba(0, 122, 255, ${opacity})`,
-    strokeWidth: 2,
-    barPercentage: 0.5,
-    useShadowColorFromDataset: false,
-    decimalPlaces: 0,
-    labelColor: (opacity = 1) => theme.text,
-  };
+  const filteredTickets =
+    selectedYear === 'Todas las fechas'
+      ? tickets
+      : tickets.filter(ticket => feriaById.has(String(ticket.idFeria)));
 
-  const barWidth = Math.max(feriaLabelsFiltered.length * 180, screenWidth - 40);
+  const statsByFeria = new Map<
+    string,
+    { id: string; label: string; generated: number; usedRaw: number }
+  >();
+
+  filteredTickets.forEach(ticket => {
+    if (ticket.estado !== 'ACTIVO') return;
+
+    const id = String(ticket.idFeria ?? 'SIN_FERIA');
+    const feria = feriaById.get(id);
+    const current = statsByFeria.get(id) ?? {
+      id,
+      label: feria?.nombre || 'Sin Feria',
+      generated: 0,
+      usedRaw: 0,
+    };
+
+    current.generated += toNonNegativeNumber(ticket.cantidad_inicial);
+    current.usedRaw += toNonNegativeNumber(ticket.usos);
+    statsByFeria.set(id, current);
+  });
+
+  const feriaStats = Array.from(statsByFeria.values()).map(item => {
+    const used = Math.min(item.usedRaw, item.generated);
+    const unused = Math.max(item.generated - used, 0);
+    return {
+      ...item,
+      used,
+      unused,
+      inconsistent: item.usedRaw > item.generated,
+      progress: item.generated > 0 ? clamp01(used / item.generated) : 0,
+      percentage: item.generated > 0 ? Math.round((used / item.generated) * 100) : 0,
+    };
+  });
+
+  const totalUsed = feriaStats.reduce((sum, item) => sum + item.used, 0);
+  const totalUnused = feriaStats.reduce((sum, item) => sum + item.unused, 0);
+  const pieTotal = totalUsed + totalUnused;
+
+  const usedPercent = pieTotal > 0 ? Math.round((totalUsed / pieTotal) * 100) : 0;
+  const unusedPercent = pieTotal > 0 ? 100 - usedPercent : 0;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -408,36 +483,41 @@ export default function GraficosTicketsScreen() {
 
           <ThemedView type="card" style={[styles.chartContainer, isLargeScreen && styles.chartContainerLarge]}>
             <ThemedText type="subtitle" style={styles.chartTitle}>Porcentaje de uso de tickets por Feria</ThemedText>
-            {feriasUnicasFiltered.map((feria, i) => (
-              <View key={feria || i} style={[styles.progressItem, isLargeScreen && styles.progressItemLarge]}>
+            {feriaStats.map(item => (
+              <View key={item.id} style={[styles.progressItem, isLargeScreen && styles.progressItemLarge]}>
                 <ThemedText style={[styles.progressLabel, isLargeScreen && styles.progressLabelLarge]}>
-                  {feriaLabelsFiltered[i]}
+                  {item.label}
                 </ThemedText>
                 {isLargeScreen ? (
                   <View style={styles.progressBarRowLarge}>
                     <View style={styles.progressBarContainerLarge}>
                       <ProgressBar
-                        progress={generadosPorFeriaFiltered[i] > 0 ? usadosPorFeriaFiltered[i] / generadosPorFeriaFiltered[i] : 0}
+                        progress={item.progress}
                         color={theme.success}
                         style={styles.progressBarLarge}
                       />
                     </View>
-                    <ThemedText style={styles.progressPercentLarge}>{porcentajeUsoPorFeriaFiltered[i]}%</ThemedText>
+                    <ThemedText style={styles.progressPercentLarge}>{item.percentage}%</ThemedText>
                   </View>
                 ) : (
                   <View style={styles.progressBarRow}>
                     <View style={styles.progressBarContainer}>
                       <ProgressBar
-                        progress={generadosPorFeriaFiltered[i] > 0 ? usadosPorFeriaFiltered[i] / generadosPorFeriaFiltered[i] : 0}
+                        progress={item.progress}
                         color={theme.success}
                         style={styles.progressBar}
                       />
                     </View>
-                    <ThemedText style={styles.progressPercent}>{porcentajeUsoPorFeriaFiltered[i]}%</ThemedText>
+                    <ThemedText style={styles.progressPercent}>{item.percentage}%</ThemedText>
                   </View>
                 )}
               </View>
             ))}
+            {!feriaStats.length && (
+              <ThemedText style={styles.emptyText}>
+                No hay tickets activos para este periodo.
+              </ThemedText>
+            )}
             <View style={styles.legendRow}>
               <View style={styles.legendItem}>
                 <View style={[styles.legendColor, { backgroundColor: theme.success }]} />
@@ -448,48 +528,82 @@ export default function GraficosTicketsScreen() {
 
           <ThemedView type="card" style={[styles.chartContainer, isLargeScreen && styles.chartContainerLarge]}>
             <ThemedText type="subtitle" style={styles.chartTitle}>Distribución de Uso</ThemedText>
-            <PieChart
-              data={[
-                {
-                  name: 'Usados',
-                  population: usadosPorFeriaFiltered.reduce((a, b, i) => a + Math.min(b, generadosPorFeriaFiltered[i]), 0),
-                  color: `${theme.success}CC`,
-                  legendFontColor: theme.text,
-                  legendFontSize: 12,
-                },
-                {
-                  name: 'No Usados',
-                  population: noUsadosPorFeriaFiltered.reduce((a, b) => a + b, 0),
-                  color: `${theme.warning}CC`,
-                  legendFontColor: theme.text,
-                  legendFontSize: 12,
-                }
-              ]}
-              width={isLargeScreen ? screenWidth - 40 : screenWidth - 40}
-              height={220}
-              chartConfig={chartConfig}
-              accessor="population"
-              backgroundColor="transparent"
-              paddingLeft="15"
-              absolute
-            />
+            {pieTotal > 0 ? (
+              <View>
+                <View
+                  accessible
+                  accessibilityLabel={`${usedPercent}% usados y ${unusedPercent}% no usados`}
+                  style={[styles.distributionTrack, { backgroundColor: `${theme.border}66` }]}
+                >
+                  {totalUsed > 0 && (
+                    <View
+                      style={[
+                        styles.distributionSegment,
+                        {
+                          flex: totalUsed,
+                          backgroundColor: theme.success,
+                        },
+                      ]}
+                    />
+                  )}
+                  {totalUnused > 0 && (
+                    <View
+                      style={[
+                        styles.distributionSegment,
+                        {
+                          flex: totalUnused,
+                          backgroundColor: theme.warning,
+                        },
+                      ]}
+                    />
+                  )}
+                </View>
+
+                <View style={styles.distributionLegend}>
+                  <View style={styles.distributionLegendItem}>
+                    <View style={[styles.legendColor, { backgroundColor: theme.success }]} />
+                    <View>
+                      <ThemedText style={styles.distributionValue}>
+                        {totalUsed} · {usedPercent}%
+                      </ThemedText>
+                      <ThemedText style={styles.distributionLabel}>Usados</ThemedText>
+                    </View>
+                  </View>
+                  <View style={styles.distributionLegendItem}>
+                    <View style={[styles.legendColor, { backgroundColor: theme.warning }]} />
+                    <View>
+                      <ThemedText style={styles.distributionValue}>
+                        {totalUnused} · {unusedPercent}%
+                      </ThemedText>
+                      <ThemedText style={styles.distributionLabel}>No usados</ThemedText>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            ) : (
+              <ThemedText style={styles.emptyText}>
+                Aún no hay cantidades válidas para dibujar la gráfica.
+              </ThemedText>
+            )}
           </ThemedView>
 
           <ThemedView type="card" style={[styles.summaryContainer, isLargeScreen && styles.summaryContainerLarge]}>
             <ThemedText type="subtitle" style={styles.chartTitle}>Resumen por Feria</ThemedText>
-            {feriasUnicasFiltered.map((feria, i) => (
-              <ThemedView type="card" key={feria || i} style={styles.summaryItem}>
-                <ThemedText type="subtitle" style={styles.feriaName}>{feriaLabelsFiltered[i]}</ThemedText>
+            {feriaStats.map(item => (
+              <ThemedView type="card" key={item.id} style={styles.summaryItem}>
+                <ThemedText type="subtitle" style={styles.feriaName}>{item.label}</ThemedText>
                 <View style={styles.summaryStats}>
-                  <ThemedText style={styles.statText}>Generados: <ThemedText style={{ color: theme.buttonPrimary }}>{generadosPorFeriaFiltered[i]}</ThemedText></ThemedText>
-                  <ThemedText style={[styles.statText, { color: theme.success }]}>Usados: {usadosPorFeriaFiltered[i]}</ThemedText>
-                  <ThemedText style={[styles.statText, { color: theme.warning }]}>No usados: {noUsadosPorFeriaFiltered[i]}</ThemedText>
-                  {incoherenciasFiltered[i] && (
+                  <ThemedText style={styles.statText}>Generados: <ThemedText style={{ color: theme.buttonPrimary }}>{item.generated}</ThemedText></ThemedText>
+                  <ThemedText style={[styles.statText, { color: theme.success }]}>Usados: {item.used}</ThemedText>
+                  <ThemedText style={[styles.statText, { color: theme.warning }]}>No usados: {item.unused}</ThemedText>
+                  {item.inconsistent && (
                     <Ionicons name="warning" size={18} color={theme.error} style={{ marginLeft: 4 }} />
                   )}
                 </View>
-                {incoherenciasFiltered[i] && (
-                  <ThemedText style={[styles.warningText, { color: theme.error }]}>¡Más usados que generados!</ThemedText>
+                {item.inconsistent && (
+                  <ThemedText style={[styles.warningText, { color: theme.error }]}>
+                    Se registraron más usos ({item.usedRaw}) que tickets generados ({item.generated}).
+                  </ThemedText>
                 )}
               </ThemedView>
             ))}

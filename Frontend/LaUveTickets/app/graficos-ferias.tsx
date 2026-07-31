@@ -12,7 +12,7 @@ import {
 } from 'date-fns';
 import { es } from 'date-fns/locale';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Calendar } from 'react-native-calendars';
+import { Calendar, LocaleConfig } from 'react-native-calendars';
 import {
   ActivityIndicator,
   ScrollView,
@@ -22,7 +22,6 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { PieChart } from 'react-native-chart-kit';
 import FeriaRouteMap from '../components/FeriaRouteMap';
 import { NavigationHeaderRegistration } from '../components/NavigationHeaderRegistration';
 import { useNavigationChrome } from '../contexts/NavigationChromeContext';
@@ -32,6 +31,50 @@ import {
   subscribeFerias,
 } from '../services/firestoreData';
 import { buildFeriaRoute, getFeriaStart } from '../services/feriaTravel';
+
+LocaleConfig.locales.es = {
+  monthNames: [
+    'Enero',
+    'Febrero',
+    'Marzo',
+    'Abril',
+    'Mayo',
+    'Junio',
+    'Julio',
+    'Agosto',
+    'Septiembre',
+    'Octubre',
+    'Noviembre',
+    'Diciembre',
+  ],
+  monthNamesShort: [
+    'Ene.',
+    'Feb.',
+    'Mar.',
+    'Abr.',
+    'May.',
+    'Jun.',
+    'Jul.',
+    'Ago.',
+    'Sept.',
+    'Oct.',
+    'Nov.',
+    'Dic.',
+  ],
+  dayNames: [
+    'Domingo',
+    'Lunes',
+    'Martes',
+    'Miércoles',
+    'Jueves',
+    'Viernes',
+    'Sábado',
+  ],
+  dayNamesShort: ['Dom.', 'Lun.', 'Mar.', 'Mié.', 'Jue.', 'Vie.', 'Sáb.'],
+  today: 'Hoy',
+};
+
+LocaleConfig.defaultLocale = 'es';
 
 const FUEL_SETTINGS_KEY = 'lauve.fuelCalculator';
 const ROAD_ESTIMATE_FACTOR = 1.18;
@@ -47,6 +90,33 @@ const FAIR_COLORS = [
   '#A2845E',
 ];
 type FeriaStatusFilter = 'TODAS' | 'ACTIVAS' | 'INACTIVAS';
+
+const toValidDate = (value: unknown): Date | null => {
+  try {
+    if (value == null) return null;
+    const raw =
+      typeof (value as { toDate?: unknown }).toDate === 'function'
+        ? (value as { toDate: () => Date }).toDate()
+        : value;
+    const date = raw instanceof Date ? raw : new Date(raw as any);
+    return Number.isNaN(date.getTime()) ? null : date;
+  } catch {
+    return null;
+  }
+};
+
+const getSafeFeriaStart = (feria: FeriaRecord): Date | null => {
+  try {
+    return toValidDate(getFeriaStart(feria));
+  } catch {
+    return null;
+  }
+};
+
+const getSafeFeriaEnd = (feria: FeriaRecord): Date | null =>
+  toValidDate(feria.fechaFin ?? feria.fechaInicio ?? feria.fecha) ??
+  getSafeFeriaStart(feria);
+
 
 export default function GraficosFeriasScreen() {
   const theme = useTheme();
@@ -92,7 +162,12 @@ export default function GraficosFeriasScreen() {
   const years = useMemo(
     () =>
       Array.from(
-        new Set(ferias.map(feria => String(getFeriaStart(feria).getFullYear()))),
+        new Set(
+          ferias
+            .map(getSafeFeriaStart)
+            .filter((date): date is Date => Boolean(date))
+            .map(date => String(date.getFullYear())),
+        ),
       ).sort((a, b) => Number(b) - Number(a)),
     [ferias],
   );
@@ -112,13 +187,14 @@ export default function GraficosFeriasScreen() {
       selectedYear === 'Todas las fechas'
         ? ferias
         : ferias.filter(
-            feria => String(getFeriaStart(feria).getFullYear()) === selectedYear,
+            feria => String(getSafeFeriaStart(feria)?.getFullYear()) === selectedYear,
           ),
     [ferias, selectedYear],
   );
   const analyticsFerias = useMemo(
     () =>
       filteredFerias.filter(feria => {
+        if (!getSafeFeriaStart(feria)) return false;
         const active = (feria.estado ?? 'ACTIVO') === 'ACTIVO';
         if (statusFilter === 'ACTIVAS') return active;
         if (statusFilter === 'INACTIVAS') return !active;
@@ -126,10 +202,17 @@ export default function GraficosFeriasScreen() {
       }),
     [filteredFerias, statusFilter],
   );
-  const route = useMemo(
-    () => buildFeriaRoute(analyticsFerias),
-    [analyticsFerias],
-  );
+  const route = useMemo<ReturnType<typeof buildFeriaRoute>>(() => {
+    try {
+      return buildFeriaRoute(analyticsFerias);
+    } catch {
+      return {
+        ferias: [],
+        legs: [],
+        totalDirectKm: 0,
+      } as ReturnType<typeof buildFeriaRoute>;
+    }
+  }, [analyticsFerias]);
   const feriaColors = useMemo(
     () =>
       Object.fromEntries(
@@ -154,13 +237,11 @@ export default function GraficosFeriasScreen() {
           }
         >
       >((marks, feria) => {
-        const start = getFeriaStart(feria);
-        const end = new Date(
-          feria.fechaFin ?? feria.fechaInicio ?? feria.fecha,
-        );
+        const start = getSafeFeriaStart(feria);
+        const end = getSafeFeriaEnd(feria);
         if (
-          Number.isNaN(start.getTime()) ||
-          Number.isNaN(end.getTime()) ||
+          !start ||
+          !end ||
           end < start ||
           differenceInCalendarDays(end, start) > 730
         ) {
@@ -193,17 +274,19 @@ export default function GraficosFeriasScreen() {
     const monthEnd = endOfMonth(monthStart);
     return analyticsFerias
       .filter(feria => {
-        const start = getFeriaStart(feria);
-        const end = new Date(
-          feria.fechaFin ?? feria.fechaInicio ?? feria.fecha,
-        );
-        return start <= monthEnd && end >= monthStart;
+        const start = getSafeFeriaStart(feria);
+        const end = getSafeFeriaEnd(feria);
+        return Boolean(start && end && start <= monthEnd && end >= monthStart);
       })
       .sort(
-        (a, b) => getFeriaStart(a).getTime() - getFeriaStart(b).getTime(),
+        (a, b) =>
+          (getSafeFeriaStart(a)?.getTime() ?? 0) -
+          (getSafeFeriaStart(b)?.getTime() ?? 0),
       );
   }, [analyticsFerias, visibleMonth]);
-  const estimatedRoadKm = route.totalDirectKm * ROAD_ESTIMATE_FACTOR;
+  const estimatedRoadKm = Number.isFinite(route.totalDirectKm)
+    ? route.totalDirectKm * ROAD_ESTIMATE_FACTOR
+    : 0;
   const consumption = Number(litresPer100.replace(',', '.')) || 0;
   const fuelPrice = Number(pricePerLitre.replace(',', '.')) || 0;
   const estimatedLitres = (estimatedRoadKm * consumption) / 100;
@@ -211,11 +294,33 @@ export default function GraficosFeriasScreen() {
 
   const feriasPorMes = analyticsFerias.reduce<Record<string, number>>(
     (accumulator, feria) => {
-      const month = format(getFeriaStart(feria), 'MMMM', { locale: es });
+      const start = getSafeFeriaStart(feria);
+      if (!start) return accumulator;
+      const month = format(start, 'MMMM', { locale: es });
       accumulator[month] = (accumulator[month] ?? 0) + 1;
       return accumulator;
     },
     {},
+  );
+  const monthData: Array<{
+    name: string;
+    population: number;
+    color: string;
+    legendFontColor: string;
+    legendFontSize: number;
+  }> = Object.entries(feriasPorMes).map(
+    ([name, population], index) => ({
+      name,
+      population: Number.isFinite(Number(population)) ? Number(population) : 0,
+      color: FAIR_COLORS[index % FAIR_COLORS.length],
+      legendFontColor: theme.text,
+      legendFontSize: 12,
+    }),
+  );
+  const monthTotal = monthData.reduce((sum, item) => sum + item.population, 0);
+  const maxMonthPopulation = monthData.reduce(
+    (max, item) => Math.max(max, item.population),
+    0,
   );
 
   const persistCalculator = (nextConsumption: string, nextPrice: string) => {
@@ -261,8 +366,7 @@ export default function GraficosFeriasScreen() {
     );
   }
 
-  const contentWidth = Math.min(width - 32, 980);
-  const pieWidth = Math.min(contentWidth - 24, 600);
+  const contentWidth = Math.max(280, Math.min(width - 32, 980));
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -349,6 +453,7 @@ export default function GraficosFeriasScreen() {
               </View>
             </View>
             <Calendar
+              firstDay={1}
               markedDates={calendarMarks}
               markingType="multi-dot"
               onMonthChange={month =>
@@ -384,14 +489,9 @@ export default function GraficosFeriasScreen() {
                       {feria.nombre}
                     </ThemedText>
                     <ThemedText style={styles.legendDates}>
-                      {format(getFeriaStart(feria), 'dd/MM')}
+                      {format(getSafeFeriaStart(feria)!, 'dd/MM')}
                       {' – '}
-                      {format(
-                        new Date(
-                          feria.fechaFin ?? feria.fechaInicio ?? feria.fecha,
-                        ),
-                        'dd/MM',
-                      )}
+                      {format(getSafeFeriaEnd(feria)!, 'dd/MM')}
                       {' · '}
                       {(feria.estado ?? 'ACTIVO') === 'ACTIVO'
                         ? 'Activa'
@@ -461,7 +561,7 @@ export default function GraficosFeriasScreen() {
                       {leg.origin.nombre} → {leg.destination.nombre}
                     </ThemedText>
                     <ThemedText style={{ color: theme.buttonPrimary }}>
-                      {(leg.directKm * ROAD_ESTIMATE_FACTOR).toFixed(0)} km
+                      {(Number.isFinite(leg.directKm) ? leg.directKm * ROAD_ESTIMATE_FACTOR : 0).toFixed(0)} km
                     </ThemedText>
                   </View>
                 ))}
@@ -484,28 +584,39 @@ export default function GraficosFeriasScreen() {
             <ThemedText type="subtitle" style={styles.sectionTitle}>
               Distribución por meses
             </ThemedText>
-            {Object.keys(feriasPorMes).length ? (
-              <PieChart
-                data={Object.entries(feriasPorMes).map(
-                  ([name, population], index) => ({
-                    name,
-                    population,
-                    color: `hsl(${index * 57}, 72%, 58%)`,
-                    legendFontColor: theme.text,
-                    legendFontSize: 12,
-                  }),
-                )}
-                width={pieWidth}
-                height={220}
-                chartConfig={{
-                  color: opacity => `rgba(22,139,255,${opacity})`,
-                  labelColor: () => theme.text,
-                }}
-                accessor="population"
-                backgroundColor="transparent"
-                paddingLeft="10"
-                absolute
-              />
+            {monthTotal > 0 ? (
+              <View style={styles.monthChart}>
+                {monthData.map(item => {
+                  const percentage =
+                    maxMonthPopulation > 0
+                      ? Math.max(4, (item.population / maxMonthPopulation) * 100)
+                      : 0;
+                  return (
+                    <View key={item.name} style={styles.monthRow}>
+                      <View style={styles.monthHeader}>
+                        <ThemedText style={styles.monthName}>{item.name}</ThemedText>
+                        <ThemedText style={styles.monthValue}>{item.population}</ThemedText>
+                      </View>
+                      <View
+                        style={[
+                          styles.monthTrack,
+                          { backgroundColor: `${theme.border}66` },
+                        ]}
+                      >
+                        <View
+                          style={[
+                            styles.monthBar,
+                            {
+                              width: `${percentage}%`,
+                              backgroundColor: item.color,
+                            },
+                          ]}
+                        />
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
             ) : (
               <ThemedText style={styles.emptyText}>
                 No hay ferias para este periodo.
@@ -623,6 +734,35 @@ const styles = StyleSheet.create({
   },
   routeNames: { flex: 1 },
   emptyMap: { minHeight: 180, justifyContent: 'center', alignItems: 'center', gap: 10 },
+  monthChart: {
+    gap: 13,
+    paddingTop: 8,
+  },
+  monthRow: {
+    gap: 6,
+  },
+  monthHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  monthName: {
+    textTransform: 'capitalize',
+    fontWeight: '700',
+  },
+  monthValue: {
+    fontWeight: '800',
+  },
+  monthTrack: {
+    height: 14,
+    borderRadius: 7,
+    overflow: 'hidden',
+  },
+  monthBar: {
+    height: '100%',
+    minWidth: 4,
+    borderRadius: 7,
+  },
   emptyText: { textAlign: 'center', opacity: 0.7 },
   inputRow: { flexDirection: 'row', gap: 12 },
   inputGroup: { flex: 1 },

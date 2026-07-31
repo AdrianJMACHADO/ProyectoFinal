@@ -1,15 +1,16 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import type {
-  FeriaLocationPickerProps,
-  FeriaLocationValue,
-} from './FeriaLocationPicker.types';
+import type { FeriaLocationValue } from './FeriaLocationPicker.native';
 
 export type { FeriaLocationValue };
 
 export default function FeriaLocationPicker({
   value,
-}: FeriaLocationPickerProps) {
+}: {
+  value?: FeriaLocationValue;
+  onChange: (value: FeriaLocationValue) => void;
+  initialSearch?: string;
+}) {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Selección de ubicación</Text>
@@ -17,7 +18,6 @@ export default function FeriaLocationPicker({
         Abre esta feria desde iPhone o Android para elegir la ubicación en el
         mapa.
       </Text>
-
       {value && (
         <Text style={styles.value}>
           {value.ubicacionNombre ||
@@ -35,16 +35,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 14,
   },
-  title: {
-    color: '#168BFF',
-    fontWeight: '700',
-    marginBottom: 5,
-  },
-  text: {
-    color: '#A8A8AE',
-  },
-  value: {
-    color: 'white',
-    marginTop: 8,
-  },
+  title: { color: '#168BFF', fontWeight: '700', marginBottom: 5 },
+  text: { color: '#A8A8AE' },
+  value: { color: 'white', marginTop: 8 },
 });

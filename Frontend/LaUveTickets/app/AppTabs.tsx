@@ -59,15 +59,20 @@ function FloatingTabBar(props: MaterialTopTabBarProps) {
   const progress = useRef(new Animated.Value(0)).current;
   const [tabsWidth, setTabsWidth] = useState(0);
   const routeCount = props.state.routes.length;
+  const useRealBlur = Platform.OS === 'ios';
 
   useEffect(() => {
-    Animated.spring(progress, {
+    const animation = Animated.spring(progress, {
       toValue: isTabBarCompact ? 1 : 0,
       damping: 22,
       stiffness: 230,
       mass: 0.8,
+      // height y marginHorizontal son propiedades de layout. En Android/web
+      // mantenemos esta animación corta, pero evitamos combinarla con blur real.
       useNativeDriver: false,
-    }).start();
+    });
+    animation.start();
+    return () => animation.stop();
   }, [isTabBarCompact, progress]);
 
   const barHeight = progress.interpolate({
@@ -107,19 +112,19 @@ function FloatingTabBar(props: MaterialTopTabBarProps) {
             height: barHeight,
             borderColor: `${theme.border}B8`,
             shadowColor: theme.shadow,
-            backgroundColor:
-              Platform.OS === 'ios'
-                ? 'rgba(24, 24, 27, 0.38)'
-                : 'rgba(28, 28, 32, 0.78)',
+            backgroundColor: useRealBlur
+              ? 'rgba(24, 24, 27, 0.38)'
+              : 'rgba(28, 28, 32, 0.94)',
           },
         ]}
       >
-        <BlurView
-          tint="dark"
-          intensity={Platform.OS === 'ios' ? 78 : 65}
-          experimentalBlurMethod="dimezisBlurView"
-          style={StyleSheet.absoluteFill}
-        />
+        {useRealBlur && (
+          <BlurView
+            tint="dark"
+            intensity={78}
+            style={StyleSheet.absoluteFill}
+          />
+        )}
         <View
           style={[
             StyleSheet.absoluteFill,
@@ -448,9 +453,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.045)',
   },
   webGlass: {
-    backdropFilter: 'blur(24px)',
-    WebkitBackdropFilter: 'blur(24px)',
-  } as any,
+    // Capa de cristal estática. backdrop-filter sobre una barra animada
+    // repinta continuamente en navegador y es el principal cuello de botella.
+    backgroundColor: 'rgba(255, 255, 255, 0.025)',
+  },
   tabItems: {
     flex: 1,
     flexDirection: 'row',
