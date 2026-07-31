@@ -3,7 +3,7 @@ import { ThemedView } from '@/components/ThemedView';
 import { useTheme } from '@/hooks/useThemeColor';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, Redirect } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Keyboard, Modal, Platform, StyleSheet, TextInput, TouchableOpacity, TouchableWithoutFeedback, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -23,7 +23,7 @@ export default function LoginScreen() {
   const [ownerState, setOwnerState] = useState<
     'loading' | 'new' | 'initialized' | 'unavailable'
   >('loading');
-  const { login } = useAuth();
+  const { login, user, profile, role, loading: authLoading } = useAuth();
   const { config, disconnect } = useFirebaseConfig();
   const router = useRouter();
   const theme = useTheme();
@@ -85,7 +85,6 @@ export default function LoginScreen() {
         email.trim().toLowerCase(),
       );
       await login(email, password);
-      router.replace('/AppTabs');
     } catch (error: any) {
       const code = error?.code;
       const invalidCredentials = [
@@ -235,6 +234,13 @@ export default function LoginScreen() {
       borderRadius: 10,
     },
   });
+
+  if (!authLoading && user && profile) {
+    if (role === 'EMPLEADO') {
+      return <Redirect href="/empleado" />;
+    }
+    return <Redirect href="/AppTabs" />;
+  }
 
   return (
     <TouchableWithoutFeedback onPress={Platform.OS === 'ios' || Platform.OS === 'android' ? Keyboard.dismiss : undefined}>

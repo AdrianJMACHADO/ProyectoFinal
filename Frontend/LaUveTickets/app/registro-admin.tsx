@@ -3,7 +3,7 @@ import { ThemedView } from '@/components/ThemedView';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/hooks/useThemeColor';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, Redirect } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -30,7 +30,7 @@ export default function RegisterOwnerScreen() {
   const [checkingOwner, setCheckingOwner] = useState(true);
   const [ownerCheckUnavailable, setOwnerCheckUnavailable] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
-  const { createOwner, recoverPassword, logout } = useAuth();
+  const { createOwner, recoverPassword, logout, user, profile } = useAuth();
   const theme = useTheme();
   const router = useRouter();
 
@@ -89,7 +89,6 @@ export default function RegisterOwnerScreen() {
     setSubmitting(true);
     try {
       await createOwner(nombre, email, password);
-      router.replace('/AppTabs');
     } catch (registerError: any) {
       const message =
         registerError?.code === 'auth/email-already-in-use'
@@ -198,6 +197,10 @@ export default function RegisterOwnerScreen() {
       paddingHorizontal: 8,
     },
   });
+
+  if (user && profile) {
+    return <Redirect href="/AppTabs" />;
+  }
 
   return (
     <SafeAreaView style={styles.container}>

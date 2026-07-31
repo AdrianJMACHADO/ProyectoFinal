@@ -4,10 +4,10 @@ import { ActivityIndicator, Text, View } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function Index() {
-  const { user, loading } = useAuth();
+  const { user, profile, role, loading } = useAuth();
 
   // Mostrar indicador de carga mientras se verifica la autenticación
-  if (loading) {
+  if (loading || (user && !profile)) {
     return (
       <View style={{
         flex: 1,
@@ -32,6 +32,10 @@ export default function Index() {
     return <Redirect href="/login" />;
   }
 
-  // Si hay usuario autenticado, redirigir a la página principal de tickets
+  // Si hay usuario autenticado, redirigir según el rol
+  if (role === 'EMPLEADO') {
+    return <Redirect href="/empleado" />;
+  }
+
   return <Redirect href="/AppTabs" />;
 }

@@ -224,7 +224,7 @@ export default function TicketsScreen() {
     >
       <Text style={styles.ticketTitle}>{item.nombre} ({item.tipo})</Text>
       <Text>Feria: {ferias.find(f => f.idFeria === item.idFeria)?.nombre || '-'}</Text>
-      <Text>Cantidad inicial: {item.cantidad_inicial}</Text>
+      <Text>Número de viajes: {item.cantidad_inicial}</Text>
       <Text>Usos: {item.usos ?? 0}</Text>
       <Text>Estado: {item.estado}</Text>
       <Text>Fecha creación: {item.fecha_creacion ? format(new Date(item.fecha_creacion), 'dd/MM/yyyy') : '-'}</Text>

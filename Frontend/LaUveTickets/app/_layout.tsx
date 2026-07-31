@@ -3,7 +3,12 @@ import { useTheme } from '@/hooks/useThemeColor';
 import { Ionicons } from '@expo/vector-icons';
 import { Redirect, Stack, usePathname } from 'expo-router';
 import React from 'react';
-import { ActivityIndicator, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import {
@@ -16,92 +21,74 @@ function RootLayoutNav() {
   const pathname = usePathname();
   const theme = useTheme();
 
-  // Si está cargando, no mostrar nada
-  if (loading) {
-    return (
-      <View
-        style={{
-          flex: 1,
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: theme.background,
-        }}
-      >
-        <ActivityIndicator size="large" color={theme.buttonPrimary} />
-      </View>
-    );
-  }
-
-  if (user && !profile) {
-    return (
-      <View
-        style={{
-          flex: 1,
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: 28,
-          gap: 16,
-          backgroundColor: theme.background,
-        }}
-      >
-        {profileError ? (
-          <Ionicons name="shield-outline" size={58} color={theme.error} />
-        ) : (
-          <ActivityIndicator size="large" color={theme.buttonPrimary} />
-        )}
-        <ThemedText type="title" style={{ textAlign: 'center' }}>
-          {profileError
-            ? 'No se pudo abrir este usuario'
-            : 'Preparando tu cuenta…'}
-        </ThemedText>
-        {profileError && (
-          <>
-            <ThemedText style={{ textAlign: 'center', opacity: 0.75 }}>
-              La sesión existe, pero no tiene un perfil autorizado en este
-              negocio. Vuelve al inicio para acceder con otra cuenta o recuperar
-              el superadministrador.
-            </ThemedText>
-            <TouchableOpacity
-              style={{
-                minHeight: 50,
-                borderRadius: 12,
-                paddingHorizontal: 22,
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: theme.buttonPrimary,
-              }}
-              onPress={logout}
-            >
-              <ThemedText type="button" style={{ color: 'white' }}>
-                Volver al inicio
-              </ThemedText>
-            </TouchableOpacity>
-          </>
-        )}
-      </View>
-    );
-  }
-
-  // Si no hay usuario y no estamos en login, redirigir al login
-  if (
-    !user
-    && pathname !== '/login'
-    && pathname !== '/registro-admin'
-  ) {
-    return <Redirect href="/login" />;
-  }
-
-  if (
-    user
-    && role === 'EMPLEADO'
-    && pathname !== '/empleado'
-    && !pathname.startsWith('/tickets/')
-  ) {
-    return <Redirect href={'/empleado' as any} />;
-  }
+  const isPublicRoute =
+    pathname === '/login' || pathname === '/registro-admin';
+  const isEmployeeRoute =
+    pathname === '/empleado' || pathname.startsWith('/tickets/');
+  const showAuthLoading = loading || (user && !profile && !profileError);
+  const showProfileError = user && !profile && profileError;
 
   return (
-    <Stack
+    <>
+      {showAuthLoading && (
+        <View
+          style={[
+            StyleSheet.absoluteFillObject,
+            styles.overlay,
+            { backgroundColor: theme.background },
+          ]}
+        >
+          <ActivityIndicator size="large" color={theme.buttonPrimary} />
+        </View>
+      )}
+
+      {showProfileError && (
+        <View
+          style={[
+            StyleSheet.absoluteFillObject,
+            styles.overlay,
+            styles.profileErrorOverlay,
+            { backgroundColor: theme.background },
+          ]}
+        >
+          <Ionicons name="shield-outline" size={58} color={theme.error} />
+          <ThemedText type="title" style={{ textAlign: 'center' }}>
+            No se pudo abrir este usuario
+          </ThemedText>
+          <ThemedText style={{ textAlign: 'center', opacity: 0.75 }}>
+            La sesión existe, pero no tiene un perfil autorizado en este
+            negocio. Vuelve al inicio para acceder con otra cuenta o recuperar
+            el superadministrador.
+          </ThemedText>
+          <TouchableOpacity
+            style={{
+              minHeight: 50,
+              borderRadius: 12,
+              paddingHorizontal: 22,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: theme.buttonPrimary,
+            }}
+            onPress={logout}
+          >
+            <ThemedText type="button" style={{ color: 'white' }}>
+              Volver al inicio
+            </ThemedText>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {!loading && !user && !isPublicRoute && <Redirect href="/login" />}
+
+      {!loading
+        && user
+        && profile
+        && role === 'EMPLEADO'
+        && !isEmployeeRoute && (
+          <Redirect href={'/empleado' as any} />
+        )}
+
+      <Stack
       screenOptions={{
         headerShown: false,
         animation: 'fade',
@@ -159,9 +146,22 @@ function RootLayoutNav() {
               fullScreenGestureEnabled: true,
             }}
           />
-    </Stack>
+      </Stack>
+    </>
   );
 }
+
+const styles = StyleSheet.create({
+  overlay: {
+    zIndex: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileErrorOverlay: {
+    padding: 28,
+    gap: 16,
+  },
+});
 
 export default function RootLayout() {
   return (
