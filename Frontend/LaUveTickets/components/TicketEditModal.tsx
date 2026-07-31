@@ -13,7 +13,8 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  useColorScheme
+  useColorScheme,
+  useWindowDimensions,
 } from 'react-native';
 import { Feria, Ticket } from '../app/tickets';
 
@@ -83,6 +84,17 @@ export const TicketEditModal: React.FC<TicketEditModalProps> = ({
 }) => {
   const colorScheme = useColorScheme();
   const theme = colors[colorScheme || 'light'];
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+
+  const modalHorizontalMargin = screenWidth < 380 ? 16 : 24;
+  const modalWidth = Math.min(
+    screenWidth - modalHorizontalMargin * 2,
+    Platform.OS === 'web' ? 520 : 480,
+  );
+  const modalMaxHeight = Math.min(
+    screenHeight - 48,
+    Platform.OS === 'web' ? 760 : screenHeight * 0.88,
+  );
   const [dropdownVisible, setDropdownVisible] = useState(false);
   const [currentDropdown, setCurrentDropdown] = useState<'feria' | 'estado' | null>(null);
   const dropdownRef = useRef<View>(null);
@@ -256,17 +268,25 @@ export const TicketEditModal: React.FC<TicketEditModalProps> = ({
   const styles = StyleSheet.create({
     modalOverlay: {
       flex: 1,
+      width: '100%',
       backgroundColor: theme.modalBackground,
       justifyContent: 'center',
       alignItems: 'center',
     },
+    keyboardContainer: {
+      flex: 1,
+      width: '100%',
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingVertical: 16,
+    },
     modalContent: {
       backgroundColor: theme.card,
-      padding: Platform.OS === 'web' ? 18 : 25,
-      borderRadius: 12,
-      width: '90%',
-      maxWidth: Platform.OS === 'web' ? 390 : 450,
-      maxHeight: Platform.OS === 'web' ? '90%' : '86%',
+      padding: Platform.OS === 'web' ? 18 : 20,
+      borderRadius: 16,
+      width: modalWidth,
+      maxWidth: modalWidth,
+      maxHeight: modalMaxHeight,
       elevation: 8,
       shadowColor: theme.shadow,
       shadowOffset: { width: 0, height: 4 },
@@ -320,10 +340,11 @@ export const TicketEditModal: React.FC<TicketEditModalProps> = ({
       marginTop: 5,
     },
     modalButtons: {
-      flexDirection: 'row',
+      flexDirection: screenWidth < 350 ? 'column' : 'row',
       justifyContent: 'space-between',
-      marginTop: Platform.OS === 'web' ? 14 : 25,
-      gap: 12,
+      marginTop: Platform.OS === 'web' ? 14 : 18,
+      gap: 10,
+      width: '100%',
     },
     saveErrorText: {
       color: '#ff3b30',
@@ -333,9 +354,13 @@ export const TicketEditModal: React.FC<TicketEditModalProps> = ({
       fontSize: 15,
     },
     button: {
-      flex: 1,
-      padding: Platform.OS === 'web' ? 12 : 16,
-      borderRadius: 8,
+      flex: screenWidth < 350 ? 0 : 1,
+      width: screenWidth < 350 ? '100%' : undefined,
+      minWidth: 0,
+      minHeight: 52,
+      paddingHorizontal: Platform.OS === 'web' ? 12 : 10,
+      paddingVertical: Platform.OS === 'web' ? 12 : 14,
+      borderRadius: 10,
       alignItems: 'center',
       justifyContent: 'center',
       shadowColor: theme.shadow,
@@ -353,7 +378,7 @@ export const TicketEditModal: React.FC<TicketEditModalProps> = ({
     buttonText: {
       color: 'white',
       textAlign: 'center',
-      fontSize: 17,
+      fontSize: Platform.OS === 'web' ? 16 : 15,
       fontWeight: 'bold',
     },
     disabledInput: {
@@ -443,9 +468,9 @@ export const TicketEditModal: React.FC<TicketEditModalProps> = ({
         }
       }}>
         <KeyboardAvoidingView
-          style={styles.modalOverlay}
+          style={styles.keyboardContainer}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 20}
         >
           <Pressable
             style={styles.modalContent}
@@ -691,14 +716,28 @@ export const TicketEditModal: React.FC<TicketEditModalProps> = ({
                     onPress={handleSave}
                     disabled={isLoading}
                   >
-                    <Text style={styles.buttonText}>{isCreating ? 'Crear' : 'Guardar Cambios'}</Text>
+                    <Text
+                      style={styles.buttonText}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.8}
+                    >
+                      {isCreating ? 'Crear' : 'Guardar'}
+                    </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.button, styles.cancelButton]}
                     onPress={onClose}
                     disabled={isLoading}
                   >
-                    <Text style={styles.buttonText}>Cancelar</Text>
+                    <Text
+                      style={styles.buttonText}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.8}
+                    >
+                      Cancelar
+                    </Text>
                   </TouchableOpacity>
                 </>
               )}

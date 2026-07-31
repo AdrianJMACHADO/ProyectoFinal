@@ -170,40 +170,65 @@ export default function TicketDetailScreen() {
           <View style={styles.header}>
             <ThemedText type="title" style={styles.title}>{ticket.nombre}</ThemedText>
             <View style={styles.statusAndDuplicateContainer}>
-              {!isEmployee && <TouchableOpacity
-                style={[
-                  styles.estadoButton,
-                  { backgroundColor: isActive ? theme.success : theme.error }
-                ]}
-              >
-                <ThemedText type="button" style={styles.estadoText}>
-                  {ticket.estado}
-                </ThemedText>
-              </TouchableOpacity>}
+              {!isEmployee && (
+                <TouchableOpacity
+                  style={[
+                    styles.duplicateButton,
+                    {
+                      backgroundColor: duplicating
+                        ? theme.border
+                        : theme.buttonPrimary,
+                      opacity: duplicating ? 0.7 : 1,
+                    },
+                  ]}
+                  onPress={handleDuplicateTicket}
+                  disabled={duplicating}
+                >
+                  {duplicating ? (
+                    <ActivityIndicator size="small" color="white" />
+                  ) : (
+                    <>
+                      <Ionicons name="copy" size={20} color="white" />
+                      <ThemedText
+                        type="button"
+                        style={styles.duplicateButtonText}
+                      >
+                        Duplicar
+                      </ThemedText>
+                    </>
+                  )}
+                </TouchableOpacity>
+              )}
+
+              {!isEmployee && (
+                <View
+                  style={[
+                    styles.estadoButton,
+                    {
+                      backgroundColor: isActive
+                        ? theme.success
+                        : theme.error,
+                    },
+                  ]}
+                >
+                  <ThemedText type="button" style={styles.estadoText}>
+                    {ticket.estado}
+                  </ThemedText>
+                </View>
+              )}
+
               {isExhausted && (
-                <View style={[styles.estadoButton, { backgroundColor: '#FF9500' }]}>
+                <View
+                  style={[
+                    styles.estadoButton,
+                    { backgroundColor: '#FF9500' },
+                  ]}
+                >
                   <ThemedText type="button" style={styles.estadoText}>
                     AGOTADO
                   </ThemedText>
                 </View>
               )}
-              {!isEmployee && <TouchableOpacity
-                style={[
-                  styles.duplicateButton,
-                  { backgroundColor: duplicating ? theme.border : theme.buttonPrimary, opacity: duplicating ? 0.7 : 1 }
-                ]}
-                onPress={handleDuplicateTicket}
-                disabled={duplicating}
-              >
-                {duplicating ? (
-                  <ActivityIndicator size="small" color="white" />
-                ) : (
-                  <>
-                    <Ionicons name="copy" size={20} color="white" />
-                    <ThemedText type="button" style={styles.duplicateButtonText}>Duplicar</ThemedText>
-                  </>
-                )}
-              </TouchableOpacity>}
             </View>
           </View>
 
@@ -346,9 +371,13 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   estadoButton: {
+    minWidth: 112,
+    minHeight: 42,
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+    paddingVertical: 8,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   estadoText: {
     color: 'white',
@@ -399,13 +428,19 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   statusAndDuplicateContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: 8,
+    minWidth: 112,
   },
   duplicateButton: {
-    padding: 12,
+    minWidth: 112,
+    minHeight: 46,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     borderRadius: 12,
+    flexDirection: 'row',
+    gap: 7,
     justifyContent: 'center',
     alignItems: 'center',
   },

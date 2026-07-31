@@ -6,7 +6,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Calendar, DateData } from 'react-native-calendars';
+import { Calendar, DateData, LocaleConfig } from 'react-native-calendars';
 import { ActivityIndicator, Alert, Dimensions, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import FeriaLocationPicker, {
   FeriaLocationValue,
@@ -26,6 +26,51 @@ import {
 const inputFilterRegex = /[;"'=\\<>]/g;
 
 // Tipos
+
+LocaleConfig.locales.es = {
+  monthNames: [
+    'Enero',
+    'Febrero',
+    'Marzo',
+    'Abril',
+    'Mayo',
+    'Junio',
+    'Julio',
+    'Agosto',
+    'Septiembre',
+    'Octubre',
+    'Noviembre',
+    'Diciembre',
+  ],
+  monthNamesShort: [
+    'Ene.',
+    'Feb.',
+    'Mar.',
+    'Abr.',
+    'May.',
+    'Jun.',
+    'Jul.',
+    'Ago.',
+    'Sept.',
+    'Oct.',
+    'Nov.',
+    'Dic.',
+  ],
+  dayNames: [
+    'Domingo',
+    'Lunes',
+    'Martes',
+    'Miércoles',
+    'Jueves',
+    'Viernes',
+    'Sábado',
+  ],
+  dayNamesShort: ['Dom.', 'Lun.', 'Mar.', 'Mié.', 'Jue.', 'Vie.', 'Sáb.'],
+  today: 'Hoy',
+};
+
+LocaleConfig.defaultLocale = 'es';
+
 import type { FeriaRecord } from '../services/firestoreData';
 type Feria = FeriaRecord;
 
@@ -891,6 +936,7 @@ const FeriasScreen: React.FC = () => {
                       ]}
                     >
                       <Calendar
+                        firstDay={1}
                         markingType="period"
                         markedDates={rangeMarks}
                         onDayPress={selectRangeDay}
