@@ -219,9 +219,10 @@ export default function UsersScreen({ embedded = false }: UsersScreenProps) {
       borderRadius: 14,
     },
     actions: {
-      flexDirection: 'row',
+      flexDirection: width < 460 ? 'column' : 'row',
       gap: 10,
       marginTop: 14,
+      width: '100%',
     },
     resetAction: {
       marginTop: 10,
@@ -235,12 +236,23 @@ export default function UsersScreen({ embedded = false }: UsersScreenProps) {
       justifyContent: 'center',
     },
     action: {
-      flex: 1,
+      flex: width < 460 ? 0 : 1,
+      width: width < 460 ? '100%' : undefined,
+      minWidth: 0,
+      minHeight: 50,
       alignItems: 'center',
-      padding: 10,
+      justifyContent: 'center',
+      paddingHorizontal: 12,
+      paddingVertical: 10,
       borderRadius: 8,
       borderWidth: 1,
       borderColor: theme.border,
+    },
+    actionText: {
+      width: '100%',
+      textAlign: 'center',
+      fontWeight: '700',
+      flexShrink: 1,
     },
     modalOverlay: {
       flex: 1,
@@ -370,13 +382,36 @@ export default function UsersScreen({ embedded = false }: UsersScreenProps) {
                 {item.role !== 'SUPERADMIN' && (
                   <>
                     <View style={styles.actions}>
-                      <TouchableOpacity style={styles.action} onPress={() => toggleRole(item)}>
-                        <ThemedText>
+                      <TouchableOpacity
+                        style={styles.action}
+                        onPress={() => toggleRole(item)}
+                      >
+                        <ThemedText
+                          style={styles.actionText}
+                          numberOfLines={1}
+                          adjustsFontSizeToFit
+                          minimumFontScale={0.8}
+                        >
                           Hacer {item.role === 'ADMIN' ? 'empleado' : 'admin'}
                         </ThemedText>
                       </TouchableOpacity>
-                      <TouchableOpacity style={styles.action} onPress={() => toggleUser(item)}>
-                        <ThemedText style={{ color: item.activo ? theme.error : theme.success }}>
+                      <TouchableOpacity
+                        style={styles.action}
+                        onPress={() => toggleUser(item)}
+                      >
+                        <ThemedText
+                          style={[
+                            styles.actionText,
+                            {
+                              color: item.activo
+                                ? theme.error
+                                : theme.success,
+                            },
+                          ]}
+                          numberOfLines={1}
+                          adjustsFontSizeToFit
+                          minimumFontScale={0.8}
+                        >
                           {item.activo ? 'Desactivar' : 'Activar'}
                         </ThemedText>
                       </TouchableOpacity>
@@ -386,7 +421,17 @@ export default function UsersScreen({ embedded = false }: UsersScreenProps) {
                       onPress={() => sendPasswordReset(item)}
                     >
                       <Ionicons name="mail-outline" size={19} color={theme.buttonPrimary} />
-                      <ThemedText style={{ color: theme.buttonPrimary, fontWeight: '700' }}>
+                      <ThemedText
+                        style={{
+                          color: theme.buttonPrimary,
+                          fontWeight: '700',
+                          flexShrink: 1,
+                          textAlign: 'center',
+                        }}
+                        numberOfLines={2}
+                        adjustsFontSizeToFit
+                        minimumFontScale={0.82}
+                      >
                         Enviar cambio de contraseña
                       </ThemedText>
                     </TouchableOpacity>

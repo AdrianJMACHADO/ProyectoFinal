@@ -2,8 +2,8 @@
   "expo": {
     "name": "LaUveTickets",
     "slug": "LaUveTickets",
-    "version": "1.2.3",
-    "runtimeVersion": "1.2.3",
+    "version": "1.2.4",
+    "runtimeVersion": "1.2.4",
     "orientation": "portrait",
     "icon": "./assets/images/v generada por ia.png",
     "userInterfaceStyle": "automatic",
@@ -24,7 +24,7 @@
       "icon": "./assets/images/v generada por ia.png"
     },
     "android": {
-      "versionCode": 21,
+      "versionCode": 22,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/v generada por ia.png",
         "backgroundColor": "#172B3A"

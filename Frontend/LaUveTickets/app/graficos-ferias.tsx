@@ -636,7 +636,12 @@ export default function GraficosFeriasScreen() {
             </View>
             <View style={styles.inputRow}>
               <View style={styles.inputGroup}>
-                <ThemedText style={styles.inputLabel}>Consumo L/100 km</ThemedText>
+                <ThemedText
+                  style={styles.inputLabel}
+                  numberOfLines={2}
+                >
+                  Consumo L/100 km
+                </ThemedText>
                 <TextInput
                   value={litresPer100}
                   onChangeText={value => {
@@ -655,7 +660,12 @@ export default function GraficosFeriasScreen() {
                 />
               </View>
               <View style={styles.inputGroup}>
-                <ThemedText style={styles.inputLabel}>Precio por litro (€)</ThemedText>
+                <ThemedText
+                  style={styles.inputLabel}
+                  numberOfLines={2}
+                >
+                  Precio por litro (€)
+                </ThemedText>
                 <TextInput
                   value={pricePerLitre}
                   onChangeText={value => {
@@ -764,10 +774,31 @@ const styles = StyleSheet.create({
     borderRadius: 7,
   },
   emptyText: { textAlign: 'center', opacity: 0.7 },
-  inputRow: { flexDirection: 'row', gap: 12 },
-  inputGroup: { flex: 1 },
-  inputLabel: { fontSize: 13, marginBottom: 7 },
-  input: { borderWidth: 1, borderRadius: 11, paddingHorizontal: 12, height: 48 },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: 12,
+  },
+  inputGroup: {
+    flex: 1,
+    minWidth: 0,
+  },
+  inputLabel: {
+    minHeight: 42,
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 7,
+    fontWeight: '700',
+    textAlignVertical: 'bottom',
+  },
+  input: {
+    width: '100%',
+    borderWidth: 1,
+    borderRadius: 11,
+    paddingHorizontal: 12,
+    height: 52,
+    fontSize: 16,
+  },
   result: { marginTop: 16, padding: 16, borderRadius: 14, alignItems: 'center' },
   resultLabel: { fontWeight: '700' },
   resultValue: { fontSize: 32, fontWeight: '900', marginVertical: 3 },

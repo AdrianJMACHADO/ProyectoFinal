@@ -215,12 +215,35 @@ export default function GraficosTicketsScreen() {
       marginBottom: 3,
     },
     summaryStats: {
+      flexDirection: screenWidth < 560 ? 'column' : 'row',
+      alignItems: 'stretch',
+      gap: 8,
+    },
+    statBlock: {
+      flex: screenWidth < 560 ? 0 : 1,
+      width: screenWidth < 560 ? '100%' : undefined,
+      minHeight: 42,
+      borderRadius: 8,
+      paddingHorizontal: 10,
+      paddingVertical: 8,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.border,
+      backgroundColor: `${theme.background}88`,
     },
-    statText: {
+    statLabel: {
+      flexShrink: 1,
       fontSize: 13,
+      fontWeight: '700',
+      color: theme.text,
+    },
+    statValue: {
+      marginLeft: 10,
+      fontSize: 16,
+      fontWeight: '900',
+      flexShrink: 0,
     },
     warningText: {
       fontSize: 12,
@@ -593,12 +616,62 @@ export default function GraficosTicketsScreen() {
               <ThemedView type="card" key={item.id} style={styles.summaryItem}>
                 <ThemedText type="subtitle" style={styles.feriaName}>{item.label}</ThemedText>
                 <View style={styles.summaryStats}>
-                  <ThemedText style={styles.statText}>Generados: <ThemedText style={{ color: theme.buttonPrimary }}>{item.generated}</ThemedText></ThemedText>
-                  <ThemedText style={[styles.statText, { color: theme.success }]}>Usados: {item.used}</ThemedText>
-                  <ThemedText style={[styles.statText, { color: theme.warning }]}>No usados: {item.unused}</ThemedText>
-                  {item.inconsistent && (
-                    <Ionicons name="warning" size={18} color={theme.error} style={{ marginLeft: 4 }} />
-                  )}
+                  <View style={styles.statBlock}>
+                    <ThemedText style={styles.statLabel}>
+                      Generados
+                    </ThemedText>
+                    <ThemedText
+                      style={[
+                        styles.statValue,
+                        { color: theme.buttonPrimary },
+                      ]}
+                    >
+                      {item.generated}
+                    </ThemedText>
+                  </View>
+
+                  <View style={styles.statBlock}>
+                    <ThemedText style={styles.statLabel}>
+                      Usados
+                    </ThemedText>
+                    <ThemedText
+                      style={[
+                        styles.statValue,
+                        { color: theme.success },
+                      ]}
+                    >
+                      {item.used}
+                    </ThemedText>
+                  </View>
+
+                  <View style={styles.statBlock}>
+                    <ThemedText style={styles.statLabel}>
+                      No usados
+                    </ThemedText>
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                      }}
+                    >
+                      <ThemedText
+                        style={[
+                          styles.statValue,
+                          { color: theme.warning },
+                        ]}
+                      >
+                        {item.unused}
+                      </ThemedText>
+                      {item.inconsistent && (
+                        <Ionicons
+                          name="warning"
+                          size={18}
+                          color={theme.error}
+                          style={{ marginLeft: 6 }}
+                        />
+                      )}
+                    </View>
+                  </View>
                 </View>
                 {item.inconsistent && (
                   <ThemedText style={[styles.warningText, { color: theme.error }]}>
