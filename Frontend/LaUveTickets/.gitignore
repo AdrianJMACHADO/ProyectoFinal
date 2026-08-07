@@ -9,6 +9,7 @@ dist/
 web-build/
 APK/
 .gradle-user-home/
+.android-user-home/
 .expo-release-*/
 expo-env.d.ts
 

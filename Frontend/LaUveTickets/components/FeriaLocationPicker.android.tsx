@@ -389,7 +389,7 @@ export default function FeriaLocationPicker({
     }
   };
 
-  const useDeviceLocation = async () => {
+  const selectDeviceLocation = async () => {
     if (locating) return;
 
     setLocating(true);
@@ -495,7 +495,7 @@ export default function FeriaLocationPicker({
       <TouchableOpacity
         style={styles.locationButton}
         onPress={() => {
-          void useDeviceLocation();
+          void selectDeviceLocation();
         }}
         disabled={locating}
       >

@@ -17,7 +17,7 @@ import {
   PdfTemplateConfig,
   subscribePdfTemplate,
   uploadPdfTemplate,
-  useDefaultPdfTemplate,
+  useDefaultPdfTemplate as restoreDefaultPdfTemplate,
 } from '@/services/pdfTemplate';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -218,7 +218,7 @@ export default function AjustesScreen({ embedded = false }: AjustesScreenProps) 
   const restoreDefaultTemplate = async () => {
     setTemplateSaving(true);
     try {
-      await useDefaultPdfTemplate();
+      await restoreDefaultPdfTemplate();
       Alert.alert('Plantilla restaurada', 'Los PDF volverán a usar el diseño original.');
     } catch {
       Alert.alert('No se pudo restaurar', 'Comprueba las reglas de Firebase.');
